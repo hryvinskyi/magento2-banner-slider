@@ -1,0 +1,30 @@
+<?xml version="1.0"?>
+<!--
+  ~ Copyright (c) 2025. Volodymyr Hryvinskyi. All rights reserved.
+  ~ @author: <mailto:volodymyr@hryvinskyi.com>
+  -->
+<config xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:noNamespaceSchemaLocation="urn:magento:framework:Acl/etc/acl.xsd">
+    <acl>
+        <resources>
+            <resource id="Magento_Backend::admin">
+                <resource id="Magento_Backend::content">
+                    <resource id="Hryvinskyi_BannerSlider::banner_slider" title="Banner Slider" sortOrder="50">
+                        <resource id="Hryvinskyi_BannerSlider::slider" title="Manage Sliders" sortOrder="10">
+                            <resource id="Hryvinskyi_BannerSlider::slider_save" title="Save Slider" sortOrder="10"/>
+                            <resource id="Hryvinskyi_BannerSlider::slider_delete" title="Delete Slider" sortOrder="20"/>
+                        </resource>
+                        <resource id="Hryvinskyi_BannerSlider::banner" title="Manage Banners" sortOrder="20">
+                            <resource id="Hryvinskyi_BannerSlider::banner_save" title="Save Banner" sortOrder="10"/>
+                            <resource id="Hryvinskyi_BannerSlider::banner_delete" title="Delete Banner" sortOrder="20"/>
+                        </resource>
+                        <resource id="Hryvinskyi_BannerSlider::image" title="Manage Images" sortOrder="30">
+                            <resource id="Hryvinskyi_BannerSlider::image_save" title="Save Image" sortOrder="10"/>
+                            <resource id="Hryvinskyi_BannerSlider::image_delete" title="Delete Image" sortOrder="20"/>
+                        </resource>
+                    </resource>
+                </resource>
+            </resource>
+        </resources>
+    </acl>
+</config>

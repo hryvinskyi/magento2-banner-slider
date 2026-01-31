@@ -1,0 +1,160 @@
+<?xml version="1.0"?>
+<!--
+  ~ Copyright (c) 2025. Volodymyr Hryvinskyi. All rights reserved.
+  ~ @author: <mailto:volodymyr@hryvinskyi.com>
+  -->
+<config xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:noNamespaceSchemaLocation="urn:magento:framework:ObjectManager/etc/config.xsd">
+
+    <!-- Data Interfaces -->
+    <preference for="Hryvinskyi\BannerSliderApi\Api\Data\SliderInterface"
+                type="Hryvinskyi\BannerSlider\Model\Slider"/>
+    <preference for="Hryvinskyi\BannerSliderApi\Api\Data\BannerInterface"
+                type="Hryvinskyi\BannerSlider\Model\Banner"/>
+    <preference for="Hryvinskyi\BannerSliderApi\Api\Data\ImageInterface"
+                type="Hryvinskyi\BannerSlider\Model\Image"/>
+
+    <!-- Search Results -->
+    <preference for="Hryvinskyi\BannerSliderApi\Api\Data\SliderSearchResultsInterface"
+                type="Hryvinskyi\BannerSlider\Model\SliderSearchResults"/>
+    <preference for="Hryvinskyi\BannerSliderApi\Api\Data\BannerSearchResultsInterface"
+                type="Hryvinskyi\BannerSlider\Model\BannerSearchResults"/>
+    <preference for="Hryvinskyi\BannerSliderApi\Api\Data\ImageSearchResultsInterface"
+                type="Hryvinskyi\BannerSlider\Model\ImageSearchResults"/>
+
+    <!-- Repositories -->
+    <preference for="Hryvinskyi\BannerSliderApi\Api\SliderRepositoryInterface"
+                type="Hryvinskyi\BannerSlider\Model\SliderRepository"/>
+    <preference for="Hryvinskyi\BannerSliderApi\Api\BannerRepositoryInterface"
+                type="Hryvinskyi\BannerSlider\Model\BannerRepository"/>
+    <preference for="Hryvinskyi\BannerSliderApi\Api\ImageRepositoryInterface"
+                type="Hryvinskyi\BannerSlider\Model\ImageRepository"/>
+
+    <!-- Video Services -->
+    <preference for="Hryvinskyi\BannerSliderApi\Api\Video\ProviderResolverInterface"
+                type="Hryvinskyi\BannerSlider\Model\Video\ProviderResolver"/>
+    <preference for="Hryvinskyi\BannerSliderApi\Api\Video\UploadInterface"
+                type="Hryvinskyi\BannerSlider\Model\Video\Upload"/>
+    <preference for="Hryvinskyi\BannerSliderApi\Api\Video\VideoPathConfigInterface"
+                type="Hryvinskyi\BannerSlider\Model\Video\VideoPathConfig"/>
+
+    <preference for="Hryvinskyi\BannerSliderApi\Api\UploadImageInterface"
+                type="Hryvinskyi\BannerSlider\Model\UploadImage"/>
+
+    <!-- Video Provider Resolver Configuration -->
+    <type name="Hryvinskyi\BannerSlider\Model\Video\ProviderResolver">
+        <arguments>
+            <argument name="providers" xsi:type="array">
+                <item name="youtube" xsi:type="object">Hryvinskyi\BannerSlider\Model\Video\Provider\YouTube</item>
+                <item name="vimeo" xsi:type="object">Hryvinskyi\BannerSlider\Model\Video\Provider\Vimeo</item>
+                <item name="local_mp4" xsi:type="object">Hryvinskyi\BannerSlider\Model\Video\Provider\LocalMp4</item>
+                <item name="local_webm" xsi:type="object">Hryvinskyi\BannerSlider\Model\Video\Provider\LocalWebm</item>
+            </argument>
+        </arguments>
+    </type>
+
+    <!-- Entity Manager Configuration for Slider -->
+    <type name="Magento\Framework\EntityManager\MetadataPool">
+        <arguments>
+            <argument name="metadata" xsi:type="array">
+                <item name="Hryvinskyi\BannerSliderApi\Api\Data\SliderInterface" xsi:type="array">
+                    <item name="entityTableName" xsi:type="string">hryvinskyi_banner_slider</item>
+                    <item name="identifierField" xsi:type="string">slider_id</item>
+                </item>
+                <item name="Hryvinskyi\BannerSliderApi\Api\Data\BannerInterface" xsi:type="array">
+                    <item name="entityTableName" xsi:type="string">hryvinskyi_banner_slider_banner</item>
+                    <item name="identifierField" xsi:type="string">banner_id</item>
+                </item>
+            </argument>
+        </arguments>
+    </type>
+
+    <type name="Magento\Framework\EntityManager\HydratorPool">
+        <arguments>
+            <argument name="hydrators" xsi:type="array">
+                <item name="Hryvinskyi\BannerSliderApi\Api\Data\SliderInterface"
+                      xsi:type="string">Magento\Framework\EntityManager\AbstractModelHydrator</item>
+                <item name="Hryvinskyi\BannerSliderApi\Api\Data\BannerInterface"
+                      xsi:type="string">Magento\Framework\EntityManager\AbstractModelHydrator</item>
+            </argument>
+        </arguments>
+    </type>
+
+    <type name="Magento\Framework\EntityManager\Operation\ExtensionPool">
+        <arguments>
+            <argument name="extensionActions" xsi:type="array">
+                <item name="Hryvinskyi\BannerSliderApi\Api\Data\SliderInterface" xsi:type="array">
+                    <item name="read" xsi:type="array">
+                        <item name="storeReader" xsi:type="string">Hryvinskyi\BannerSlider\Model\Slider\Relation\ReadHandler</item>
+                    </item>
+                    <item name="create" xsi:type="array">
+                        <item name="storeSaver" xsi:type="string">Hryvinskyi\BannerSlider\Model\Slider\Relation\SaveHandler</item>
+                    </item>
+                    <item name="update" xsi:type="array">
+                        <item name="storeSaver" xsi:type="string">Hryvinskyi\BannerSlider\Model\Slider\Relation\SaveHandler</item>
+                    </item>
+                </item>
+            </argument>
+        </arguments>
+    </type>
+
+    <!-- Search Criteria Filter Interfaces -->
+    <preference for="Hryvinskyi\BannerSliderApi\Api\Slider\SearchCriteria\AddActiveFilterInterface"
+                type="Hryvinskyi\BannerSlider\Model\Slider\SearchCriteria\AddActiveFilter"/>
+    <preference for="Hryvinskyi\BannerSliderApi\Api\Slider\SearchCriteria\AddStoreFilterInterface"
+                type="Hryvinskyi\BannerSlider\Model\Slider\SearchCriteria\AddStoreFilter"/>
+    <preference for="Hryvinskyi\BannerSliderApi\Api\Slider\SearchCriteria\AddCustomerGroupFilterInterface"
+                type="Hryvinskyi\BannerSlider\Model\Slider\SearchCriteria\AddCustomerGroupFilter"/>
+    <preference for="Hryvinskyi\BannerSliderApi\Api\Slider\SearchCriteria\AddDateFromDateToFilterInterface"
+                type="Hryvinskyi\BannerSlider\Model\Slider\SearchCriteria\AddDateFromDateToFilter"/>
+    <preference for="Hryvinskyi\BannerSliderApi\Api\Slider\SearchCriteria\AddPrioritySortOrderInterface"
+                type="Hryvinskyi\BannerSlider\Model\Slider\SearchCriteria\AddPrioritySortOrder"/>
+    <preference for="Hryvinskyi\BannerSliderApi\Api\Slider\SearchCriteria\AddSliderIdFilterInterface"
+                type="Hryvinskyi\BannerSlider\Model\Slider\SearchCriteria\AddSliderIdFilter"/>
+
+    <preference for="Hryvinskyi\BannerSliderApi\Api\Banner\SearchCriteria\AddActiveFilterInterface"
+                type="Hryvinskyi\BannerSlider\Model\Banner\SearchCriteria\AddActiveFilter"/>
+    <preference for="Hryvinskyi\BannerSliderApi\Api\Banner\SearchCriteria\AddSliderIdFilterInterface"
+                type="Hryvinskyi\BannerSlider\Model\Banner\SearchCriteria\AddSliderIdFilter"/>
+    <preference for="Hryvinskyi\BannerSliderApi\Api\Banner\SearchCriteria\AddDateFromDateToFilterInterface"
+                type="Hryvinskyi\BannerSlider\Model\Banner\SearchCriteria\AddDateFromDateToFilter"/>
+    <preference for="Hryvinskyi\BannerSliderApi\Api\Banner\SearchCriteria\AddPositionSortOrderInterface"
+                type="Hryvinskyi\BannerSlider\Model\Banner\SearchCriteria\AddPositionSortOrder"/>
+
+    <!-- Slider Locator -->
+    <preference for="Hryvinskyi\BannerSliderApi\Api\Slider\Locator\SliderLocatorInterface"
+                type="Hryvinskyi\BannerSlider\Model\Slider\Locator\SliderLocator"/>
+
+    <!-- Breakpoint Interfaces -->
+    <preference for="Hryvinskyi\BannerSliderApi\Api\Data\BreakpointInterface"
+                type="Hryvinskyi\BannerSlider\Model\Breakpoint"/>
+    <preference for="Hryvinskyi\BannerSliderApi\Api\Data\BreakpointSearchResultsInterface"
+                type="Hryvinskyi\BannerSlider\Model\BreakpointSearchResults"/>
+    <preference for="Hryvinskyi\BannerSliderApi\Api\BreakpointRepositoryInterface"
+                type="Hryvinskyi\BannerSlider\Model\BreakpointRepository"/>
+
+    <!-- Responsive Crop Interfaces -->
+    <preference for="Hryvinskyi\BannerSliderApi\Api\Data\ResponsiveCropInterface"
+                type="Hryvinskyi\BannerSlider\Model\ResponsiveCrop"/>
+    <preference for="Hryvinskyi\BannerSliderApi\Api\Data\ResponsiveCropSearchResultsInterface"
+                type="Hryvinskyi\BannerSlider\Model\ResponsiveCropSearchResults"/>
+    <preference for="Hryvinskyi\BannerSliderApi\Api\ResponsiveCropRepositoryInterface"
+                type="Hryvinskyi\BannerSlider\Model\ResponsiveCropRepository"/>
+
+    <!-- Image Processing Services -->
+    <preference for="Hryvinskyi\BannerSliderApi\Api\Image\ImagePathConfigInterface"
+                type="Hryvinskyi\BannerSlider\Model\Image\ImagePathConfig"/>
+    <preference for="Hryvinskyi\BannerSliderApi\Api\Image\CropProcessorInterface"
+                type="Hryvinskyi\BannerSlider\Model\Image\CropProcessor"/>
+    <preference for="Hryvinskyi\BannerSliderApi\Api\Image\FormatConverterInterface"
+                type="Hryvinskyi\BannerSlider\Model\Image\FormatConverter"/>
+    <preference for="Hryvinskyi\BannerSliderApi\Api\Image\ResponsiveImageGeneratorInterface"
+                type="Hryvinskyi\BannerSlider\Model\Image\ResponsiveImageGenerator"/>
+    <preference for="Hryvinskyi\BannerSliderApi\Api\Image\UploadCompressedImagesInterface"
+                type="Hryvinskyi\BannerSlider\Model\Image\UploadCompressedImages"/>
+
+    <!-- Binary Path Resolver -->
+    <preference for="Hryvinskyi\BannerSliderApi\Api\Image\BinaryPathResolverInterface"
+                type="Hryvinskyi\BannerSlider\Model\Image\BinaryPathResolver"/>
+
+</config>

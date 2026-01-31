@@ -1,0 +1,91 @@
+{
+    "hryvinskyi_banner_slider": {
+        "column": {
+            "slider_id": true,
+            "name": true,
+            "status": true,
+            "location": true,
+            "store_ids": true,
+            "customer_group_ids": true,
+            "priority": true,
+            "effect": true,
+            "auto_width": true,
+            "auto_height": true,
+            "loop": true,
+            "lazy_load": true,
+            "auto_play": true,
+            "auto_play_timeout": true,
+            "nav": true,
+            "dots": true,
+            "is_responsive": true,
+            "responsive_items": true,
+            "preload_banners_count": true,
+            "from_date": true,
+            "to_date": true,
+            "created_at": true,
+            "updated_at": true
+        },
+        "index": {
+            "HRYVINSKYI_BANNER_SLIDER_STATUS": true,
+            "HRYVINSKYI_BANNER_SLIDER_LOCATION": true,
+            "HRYVINSKYI_BANNER_SLIDER_PRIORITY": true
+        },
+        "constraint": {
+            "PRIMARY": true
+        }
+    },
+    "hryvinskyi_banner_slider_banner": {
+        "column": {
+            "banner_id": true,
+            "slider_id": true,
+            "name": true,
+            "status": true,
+            "type": true,
+            "content": true,
+            "image": true,
+            "video_url": true,
+            "video_aspect_ratio": true,
+            "video_path": true,
+            "video_as_background": true,
+            "link_url": true,
+            "title": true,
+            "open_in_new_tab": true,
+            "from_date": true,
+            "to_date": true,
+            "position": true,
+            "is_preload": true,
+            "created_at": true,
+            "updated_at": true
+        },
+        "index": {
+            "HRYVINSKYI_BANNER_SLIDER_BANNER_SLIDER_ID": true,
+            "HRYVINSKYI_BANNER_SLIDER_BANNER_STATUS": true,
+            "HRYVINSKYI_BANNER_SLIDER_BANNER_POSITION": true,
+            "HRYVINSKYI_BANNER_SLIDER_BANNER_FT": true
+        },
+        "constraint": {
+            "PRIMARY": true,
+            "HRYVINSKYI_BANNER_SLIDER_BANNER_SLIDER_ID": true
+        }
+    },
+    "hryvinskyi_banner_slider_image": {
+        "column": {
+            "image_id": true,
+            "banner_id": true,
+            "title": true,
+            "alt": true,
+            "picture_media": true,
+            "status": true,
+            "image": true,
+            "created_at": true,
+            "updated_at": true
+        },
+        "index": {
+            "HRYVINSKYI_BANNER_SLIDER_IMAGE_BANNER_ID": true
+        },
+        "constraint": {
+            "PRIMARY": true,
+            "HRYVINSKYI_BANNER_SLIDER_IMAGE_BANNER_ID": true
+        }
+    }
+}

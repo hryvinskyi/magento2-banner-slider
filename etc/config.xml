@@ -1,0 +1,27 @@
+<?xml version="1.0"?>
+<!--
+/**
+ * Copyright (c) 2025. MageCloud.  All rights reserved.
+ * @author: Volodymyr Hryvinskyi <mailto:volodymyr@hryvinskyi.com>
+ */
+-->
+
+<config xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:noNamespaceSchemaLocation="urn:magento:module:Magento_Store:etc/config.xsd">
+    <default>
+        <system>
+            <media_storage_configuration>
+                <allowed_resources>
+                    <banner_slider_fodler>banner_slider</banner_slider_fodler>
+                    <banner_slider_image_fodler>banner_slider/image</banner_slider_image_fodler>
+                    <banner_slider_video_fodler>banner_slider/video</banner_slider_video_fodler>
+                    <media_gallery_image_folders>
+                        <banner_slider_fodler>banner_slider</banner_slider_fodler>
+                        <banner_slider_image_fodler>banner_slider/image</banner_slider_image_fodler>
+                        <banner_slider_video_fodler>banner_slider/video</banner_slider_video_fodler>
+                    </media_gallery_image_folders>
+                </allowed_resources>
+            </media_storage_configuration>
+        </system>
+    </default>
+</config>

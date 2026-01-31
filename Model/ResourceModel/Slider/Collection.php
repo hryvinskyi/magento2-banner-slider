@@ -12,6 +12,7 @@ namespace Hryvinskyi\BannerSlider\Model\ResourceModel\Slider;
 use Hryvinskyi\BannerSlider\Model\ResourceModel\Slider as SliderResource;
 use Hryvinskyi\BannerSlider\Model\Slider;
 use Hryvinskyi\BannerSliderApi\Api\Data\SliderInterface;
+use Magento\Customer\Api\Data\GroupInterface;
 use Magento\Framework\Model\ResourceModel\Db\Collection\AbstractCollection;
 
 /**
@@ -51,13 +52,7 @@ class Collection extends AbstractCollection
     public function addStoreFilter(int $storeId): self
     {
         $this->getSelect()
-            ->join(
-                ['store_table' => $this->getTable(SliderResource::STORE_TABLE_NAME)],
-                'main_table.slider_id = store_table.slider_id',
-                []
-            )
-            ->where('store_table.store_id IN (?)', [0, $storeId])
-            ->group('main_table.slider_id');
+            ->where('FIND_IN_SET(0, store_ids) OR FIND_IN_SET(?, store_ids)', $storeId);
 
         return $this;
     }
@@ -71,13 +66,10 @@ class Collection extends AbstractCollection
     public function addCustomerGroupFilter(int $customerGroupId): self
     {
         $this->getSelect()
-            ->join(
-                ['customer_group_table' => $this->getTable(SliderResource::CUSTOMER_GROUP_TABLE_NAME)],
-                'main_table.slider_id = customer_group_table.slider_id',
-                []
-            )
-            ->where('customer_group_table.customer_group_id = ?', $customerGroupId)
-            ->group('main_table.slider_id');
+            ->where(
+                'FIND_IN_SET(' . GroupInterface::CUST_GROUP_ALL . ', customer_group_ids) OR FIND_IN_SET(?, customer_group_ids)',
+                $customerGroupId
+            );
 
         return $this;
     }

@@ -5,6 +5,19 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.0.2] - 2026-01-31
+
+### Added
+- EntityManager observers for automatic FPC cache invalidation on slider/banner save and delete
+- `getById()` method to `SliderLocator` for retrieving slider by ID with context validation
+
+### Changed
+- Refactored `SliderLocator` to eliminate code duplication between `getByLocation()` and `getById()` methods
+- Removed unused `StoreManagerInterface` and `CustomerSession` dependencies from `SliderLocator`
+
+### Fixed
+- Full Page Cache now properly invalidates when sliders or banners are saved in admin
+
 ## [1.0.1] - 2026-01-31
 
 ### Added

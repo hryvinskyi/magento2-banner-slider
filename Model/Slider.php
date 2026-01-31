@@ -168,6 +168,17 @@ class Slider extends AbstractExtensibleModel implements SliderInterface, Identit
     }
 
     /**
+     * Alias for setAutoWidthEnabled to support DataObjectHelper mapping
+     *
+     * @param bool $autoWidth
+     * @return SliderInterface
+     */
+    public function setAutoWidth(bool $autoWidth): SliderInterface
+    {
+        return $this->setAutoWidthEnabled($autoWidth);
+    }
+
+    /**
      * @inheritDoc
      */
     public function isAutoHeightEnabled(): bool
@@ -181,6 +192,17 @@ class Slider extends AbstractExtensibleModel implements SliderInterface, Identit
     public function setAutoHeightEnabled(bool $autoHeight): SliderInterface
     {
         return $this->setData(self::AUTO_HEIGHT, $autoHeight);
+    }
+
+    /**
+     * Alias for setAutoHeightEnabled to support DataObjectHelper mapping
+     *
+     * @param bool $autoHeight
+     * @return SliderInterface
+     */
+    public function setAutoHeight(bool $autoHeight): SliderInterface
+    {
+        return $this->setAutoHeightEnabled($autoHeight);
     }
 
     /**
@@ -200,6 +222,17 @@ class Slider extends AbstractExtensibleModel implements SliderInterface, Identit
     }
 
     /**
+     * Alias for setLoopEnabled to support DataObjectHelper mapping
+     *
+     * @param bool $loop
+     * @return SliderInterface
+     */
+    public function setLoop(bool $loop): SliderInterface
+    {
+        return $this->setLoopEnabled($loop);
+    }
+
+    /**
      * @inheritDoc
      */
     public function isLazyLoadEnabled(): bool
@@ -216,9 +249,20 @@ class Slider extends AbstractExtensibleModel implements SliderInterface, Identit
     }
 
     /**
+     * Alias for setLazyLoadEnabled to support DataObjectHelper mapping
+     *
+     * @param bool $lazyLoad
+     * @return SliderInterface
+     */
+    public function setLazyLoad(bool $lazyLoad): SliderInterface
+    {
+        return $this->setLazyLoadEnabled($lazyLoad);
+    }
+
+    /**
      * @inheritDoc
      */
-    public function isAutoplayEnabled(): bool
+    public function isAutoPlayEnabled(): bool
     {
         return (bool)$this->getData(self::AUTO_PLAY);
     }
@@ -226,15 +270,15 @@ class Slider extends AbstractExtensibleModel implements SliderInterface, Identit
     /**
      * @inheritDoc
      */
-    public function setAutoplayEnabled(bool $autoplay): SliderInterface
+    public function setAutoPlayEnabled(bool $autoPlay): SliderInterface
     {
-        return $this->setData(self::AUTO_PLAY, $autoplay);
+        return $this->setData(self::AUTO_PLAY, $autoPlay);
     }
 
     /**
      * @inheritDoc
      */
-    public function getAutoplayTimeout(): ?int
+    public function getAutoPlayTimeout(): ?int
     {
         $timeout = $this->getData(self::AUTO_PLAY_TIMEOUT);
         return $timeout !== null ? (int)$timeout : null;
@@ -243,9 +287,9 @@ class Slider extends AbstractExtensibleModel implements SliderInterface, Identit
     /**
      * @inheritDoc
      */
-    public function setAutoplayTimeout(?int $autoplayTimeout): SliderInterface
+    public function setAutoPlayTimeout(?int $autoPlayTimeout): SliderInterface
     {
-        return $this->setData(self::AUTO_PLAY_TIMEOUT, $autoplayTimeout);
+        return $this->setData(self::AUTO_PLAY_TIMEOUT, $autoPlayTimeout);
     }
 
     /**
@@ -265,6 +309,17 @@ class Slider extends AbstractExtensibleModel implements SliderInterface, Identit
     }
 
     /**
+     * Alias for setNavigationEnabled to support DataObjectHelper mapping
+     *
+     * @param bool $nav
+     * @return SliderInterface
+     */
+    public function setNav(bool $nav): SliderInterface
+    {
+        return $this->setNavigationEnabled($nav);
+    }
+
+    /**
      * @inheritDoc
      */
     public function isPaginationEnabled(): bool
@@ -281,6 +336,17 @@ class Slider extends AbstractExtensibleModel implements SliderInterface, Identit
     }
 
     /**
+     * Alias for setPaginationEnabled to support DataObjectHelper mapping
+     *
+     * @param bool $dots
+     * @return SliderInterface
+     */
+    public function setDots(bool $dots): SliderInterface
+    {
+        return $this->setPaginationEnabled($dots);
+    }
+
+    /**
      * @inheritDoc
      */
     public function isResponsiveEnabled(): bool
@@ -294,6 +360,17 @@ class Slider extends AbstractExtensibleModel implements SliderInterface, Identit
     public function setResponsiveEnabled(bool $isResponsive): SliderInterface
     {
         return $this->setData(self::IS_RESPONSIVE, $isResponsive);
+    }
+
+    /**
+     * Alias for setResponsiveEnabled to support DataObjectHelper mapping
+     *
+     * @param bool $isResponsive
+     * @return SliderInterface
+     */
+    public function setIsResponsive(bool $isResponsive): SliderInterface
+    {
+        return $this->setResponsiveEnabled($isResponsive);
     }
 
     /**

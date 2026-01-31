@@ -276,6 +276,17 @@ class Slider extends AbstractExtensibleModel implements SliderInterface, Identit
     }
 
     /**
+     * Alias for setAutoplayEnabled to support DataObjectHelper mapping
+     *
+     * @param bool $autoPlay
+     * @return SliderInterface
+     */
+    public function setAutoPlay(bool $autoPlay): SliderInterface
+    {
+        return $this->setAutoplayEnabled($autoPlay);
+    }
+
+    /**
      * @inheritDoc
      */
     public function getAutoPlayTimeout(): ?int

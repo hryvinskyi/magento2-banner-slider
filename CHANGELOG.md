@@ -9,8 +9,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 - Alias setter methods for DataObjectHelper compatibility
-  - `Slider` model: `setNav()`, `setDots()`, `setAutoWidth()`, `setAutoHeight()`, `setLoop()`, `setLazyLoad()`, `setAutoPlay()`, `setIsResponsive()`
-  - `ResponsiveCrop` model: `setGenerateWebp()`, `setGenerateAvif()`
+### Changed
+- Renamed autoplay methods to follow snake_case naming convention:
+  - `isAutoplayEnabled()` → `isAutoPlayEnabled()`
+  - `setAutoplayEnabled()` → `setAutoPlayEnabled()`
+  - `getAutoplayTimeout()` → `getAutoPlayTimeout()`
+  - `setAutoplayTimeout()` → `setAutoPlayTimeout()`
 
 ## [1.0.0] - 2026-01-31
 

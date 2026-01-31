@@ -262,7 +262,7 @@ class Slider extends AbstractExtensibleModel implements SliderInterface, Identit
     /**
      * @inheritDoc
      */
-    public function isAutoplayEnabled(): bool
+    public function isAutoPlayEnabled(): bool
     {
         return (bool)$this->getData(self::AUTO_PLAY);
     }
@@ -270,9 +270,9 @@ class Slider extends AbstractExtensibleModel implements SliderInterface, Identit
     /**
      * @inheritDoc
      */
-    public function setAutoplayEnabled(bool $autoplay): SliderInterface
+    public function setAutoPlayEnabled(bool $autoPlay): SliderInterface
     {
-        return $this->setData(self::AUTO_PLAY, $autoplay);
+        return $this->setData(self::AUTO_PLAY, $autoPlay);
     }
 
     /**
@@ -289,7 +289,7 @@ class Slider extends AbstractExtensibleModel implements SliderInterface, Identit
     /**
      * @inheritDoc
      */
-    public function getAutoplayTimeout(): ?int
+    public function getAutoPlayTimeout(): ?int
     {
         $timeout = $this->getData(self::AUTO_PLAY_TIMEOUT);
         return $timeout !== null ? (int)$timeout : null;
@@ -298,9 +298,9 @@ class Slider extends AbstractExtensibleModel implements SliderInterface, Identit
     /**
      * @inheritDoc
      */
-    public function setAutoplayTimeout(?int $autoplayTimeout): SliderInterface
+    public function setAutoPlayTimeout(?int $autoPlayTimeout): SliderInterface
     {
-        return $this->setData(self::AUTO_PLAY_TIMEOUT, $autoplayTimeout);
+        return $this->setData(self::AUTO_PLAY_TIMEOUT, $autoPlayTimeout);
     }
 
     /**

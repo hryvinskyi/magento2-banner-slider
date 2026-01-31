@@ -252,6 +252,17 @@ class ResponsiveCrop extends AbstractExtensibleModel implements ResponsiveCropIn
     }
 
     /**
+     * Alias for setGenerateWebpEnabled to support DataObjectHelper mapping
+     *
+     * @param bool $generateWebp
+     * @return ResponsiveCropInterface
+     */
+    public function setGenerateWebp(bool $generateWebp): ResponsiveCropInterface
+    {
+        return $this->setGenerateWebpEnabled($generateWebp);
+    }
+
+    /**
      * @inheritDoc
      */
     public function isGenerateAvifEnabled(): bool
@@ -265,6 +276,17 @@ class ResponsiveCrop extends AbstractExtensibleModel implements ResponsiveCropIn
     public function setGenerateAvifEnabled(bool $generateAvif): ResponsiveCropInterface
     {
         return $this->setData(self::GENERATE_AVIF, $generateAvif);
+    }
+
+    /**
+     * Alias for setGenerateAvifEnabled to support DataObjectHelper mapping
+     *
+     * @param bool $generateAvif
+     * @return ResponsiveCropInterface
+     */
+    public function setGenerateAvif(bool $generateAvif): ResponsiveCropInterface
+    {
+        return $this->setGenerateAvifEnabled($generateAvif);
     }
 
     /**

@@ -10,7 +10,6 @@ declare(strict_types=1);
 namespace Hryvinskyi\BannerSlider\Model\ResourceModel;
 
 use Hryvinskyi\BannerSliderApi\Api\Data\SliderInterface;
-use Magento\Customer\Api\Data\GroupInterface;
 use Magento\Framework\DB\Select;
 use Magento\Framework\EntityManager\EntityManager;
 use Magento\Framework\EntityManager\MetadataPool;
@@ -108,81 +107,5 @@ class Slider extends AbstractDb
         $this->entityManager->delete($object);
 
         return $this;
-    }
-
-    /**
-     * Save store IDs for slider
-     *
-     * @param int $sliderId
-     * @param int[] $storeIds
-     * @return void
-     */
-    public function saveStoreIds(int $sliderId, array $storeIds): void
-    {
-        $connection = $this->getConnection();
-        $tableName = $this->getTable(self::STORE_TABLE_NAME);
-
-        $connection->delete($tableName, ['slider_id = ?' => $sliderId]);
-
-        if (!empty($storeIds)) {
-            $data = [];
-            foreach ($storeIds as $storeId) {
-                $data[] = [
-                    'slider_id' => $sliderId,
-                    'store_id' => (int)$storeId,
-                ];
-            }
-            $connection->insertMultiple($tableName, $data);
-        }
-    }
-
-    /**
-     * Get customer group IDs for slider
-     *
-     * @param int $sliderId
-     * @return int[]
-     */
-    public function getCustomerGroupIds(int $sliderId): array
-    {
-        $connection = $this->getConnection();
-        $select = $connection->select()
-            ->from($this->getTable(self::CUSTOMER_GROUP_TABLE_NAME), 'customer_group_id')
-            ->where('slider_id = ?', $sliderId);
-
-        $result = $connection->fetchCol($select);
-
-        if (empty($result)) {
-            $result = [GroupInterface::CUST_GROUP_ALL];
-        } else {
-            $result = array_map('intval', $result);
-        }
-
-        return $result;
-    }
-
-    /**
-     * Save customer group IDs for slider
-     *
-     * @param int $sliderId
-     * @param int[] $customerGroupIds
-     * @return void
-     */
-    public function saveCustomerGroupIds(int $sliderId, array $customerGroupIds): void
-    {
-        $connection = $this->getConnection();
-        $tableName = $this->getTable(self::CUSTOMER_GROUP_TABLE_NAME);
-
-        $connection->delete($tableName, ['slider_id = ?' => $sliderId]);
-
-        if (!empty($customerGroupIds)) {
-            $data = [];
-            foreach ($customerGroupIds as $customerGroupId) {
-                $data[] = [
-                    'slider_id' => $sliderId,
-                    'customer_group_id' => (int)$customerGroupId,
-                ];
-            }
-            $connection->insertMultiple($tableName, $data);
-        }
     }
 }

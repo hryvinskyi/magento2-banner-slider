@@ -451,6 +451,22 @@ class Slider extends AbstractExtensibleModel implements SliderInterface, Identit
     /**
      * @inheritDoc
      */
+    public function getCustomCss(): ?string
+    {
+        return $this->getData(self::CUSTOM_CSS);
+    }
+
+    /**
+     * @inheritDoc
+     */
+    public function setCustomCss(?string $customCss): SliderInterface
+    {
+        return $this->setData(self::CUSTOM_CSS, $customCss);
+    }
+
+    /**
+     * @inheritDoc
+     */
     public function getCreatedAt(): ?string
     {
         return $this->getData(self::CREATED_AT);

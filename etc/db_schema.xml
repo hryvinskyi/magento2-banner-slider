@@ -36,6 +36,7 @@
                 comment="Number of First Banners to Preload Images"/>
         <column xsi:type="datetime" name="from_date" nullable="true" comment="Active From Date"/>
         <column xsi:type="datetime" name="to_date" nullable="true" comment="Active To Date"/>
+        <column xsi:type="text" name="custom_css" nullable="true" comment="Custom CSS Styles"/>
         <column xsi:type="timestamp" name="created_at" on_update="false" nullable="false" default="CURRENT_TIMESTAMP"
                 comment="Created At"/>
         <column xsi:type="timestamp" name="updated_at" on_update="true" nullable="false" default="CURRENT_TIMESTAMP"

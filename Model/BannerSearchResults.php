@@ -20,6 +20,14 @@ class BannerSearchResults extends SearchResults implements BannerSearchResultsIn
     /**
      * @inheritDoc
      */
+    public function getItems(): array
+    {
+        return parent::getItems();
+    }
+
+    /**
+     * @inheritDoc
+     */
     public function setItems(array $items): BannerSearchResultsInterface
     {
         return parent::setItems($items);

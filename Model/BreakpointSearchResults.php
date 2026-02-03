@@ -17,4 +17,19 @@ use Magento\Framework\Api\SearchResults;
  */
 class BreakpointSearchResults extends SearchResults implements BreakpointSearchResultsInterface
 {
+    /**
+     * @inheritDoc
+     */
+    public function getItems(): array
+    {
+        return parent::getItems();
+    }
+
+    /**
+     * @inheritDoc
+     */
+    public function setItems(array $items): BreakpointSearchResultsInterface
+    {
+        return parent::setItems($items);
+    }
 }

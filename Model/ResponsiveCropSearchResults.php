@@ -17,4 +17,19 @@ use Magento\Framework\Api\SearchResults;
  */
 class ResponsiveCropSearchResults extends SearchResults implements ResponsiveCropSearchResultsInterface
 {
+    /**
+     * @inheritDoc
+     */
+    public function getItems(): array
+    {
+        return parent::getItems();
+    }
+
+    /**
+     * @inheritDoc
+     */
+    public function setItems(array $items): ResponsiveCropSearchResultsInterface
+    {
+        return parent::setItems($items);
+    }
 }

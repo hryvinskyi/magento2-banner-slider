@@ -20,6 +20,14 @@ class ImageSearchResults extends SearchResults implements ImageSearchResultsInte
     /**
      * @inheritDoc
      */
+    public function getItems(): array
+    {
+        return parent::getItems();
+    }
+
+    /**
+     * @inheritDoc
+     */
     public function setItems(array $items): ImageSearchResultsInterface
     {
         return parent::setItems($items);

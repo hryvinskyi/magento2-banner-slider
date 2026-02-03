@@ -20,6 +20,14 @@ class SliderSearchResults extends SearchResults implements SliderSearchResultsIn
     /**
      * @inheritDoc
      */
+    public function getItems(): array
+    {
+        return parent::getItems();
+    }
+
+    /**
+     * @inheritDoc
+     */
     public function setItems(array $items): SliderSearchResultsInterface
     {
         return parent::setItems($items);

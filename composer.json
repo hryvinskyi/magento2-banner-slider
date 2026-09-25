@@ -2,7 +2,7 @@
     "name": "hryvinskyi/magento2-banner-slider",
     "description": "Banner Slider core module: persistence, editors, storefront read services, responsive crops with WebP/AVIF variants, media uploads, video providers, cache refresh and media clean-up",
     "type": "magento2-module",
-    "version": "2.0.0",
+    "version": "2.1.0",
     "license": "MIT",
     "authors": [
         {
@@ -13,7 +13,7 @@
     "require": {
         "php": "~8.3.0||~8.4.0",
         "hryvinskyi/image-binaries": "^1.0",
-        "hryvinskyi/magento2-banner-slider-api": "^2.0",
+        "hryvinskyi/magento2-banner-slider-api": "^2.1",
         "magento/framework": "^103.0.7",
         "magento/module-cron": "^100.4",
         "magento/module-customer": "^103.0",

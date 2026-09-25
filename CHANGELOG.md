@@ -5,6 +5,15 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.1.0] - 2026-09-25
+
+Requires `hryvinskyi/magento2-banner-slider-api` 2.1.
+
+### Added
+- Column `hryvinskyi_banner_slider.show_autoplay_toggle` (on by default, so existing sliders keep their pause/play
+  button; no data patch) and `Slider::isAutoPlayToggleEnabled()` / `setAutoPlayToggleEnabled()`. A stored value
+  that is not a whole number reads as on.
+
 ## [2.0.0] - 2026-09-25
 
 A breaking release built on `hryvinskyi/magento2-banner-slider-api` 2.0. **The database migration is one-way**: back

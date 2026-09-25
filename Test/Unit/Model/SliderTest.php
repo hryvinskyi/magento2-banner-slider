@@ -78,6 +78,7 @@ class SliderTest extends TestCase
         self::assertTrue($this->slider->isLazyLoadEnabled());
         self::assertTrue($this->slider->isAutoPlayEnabled());
         self::assertSame(SliderInterface::DEFAULT_AUTO_PLAY_INTERVAL, $this->slider->getAutoPlayInterval());
+        self::assertTrue($this->slider->isAutoPlayToggleEnabled());
         self::assertTrue($this->slider->isNavigationEnabled());
         self::assertTrue($this->slider->isPaginationEnabled());
         self::assertSame([], $this->slider->getResponsiveItems());
@@ -134,6 +135,49 @@ class SliderTest extends TestCase
         self::assertSame(2, $this->slider->getPreloadBannersCount());
         self::assertSame('home-top', $this->slider->getLocation());
         self::assertSame('2026-01-01 10:00:00', $this->slider->getCreatedAt());
+    }
+
+    /**
+     * The stored pause/play button flag: 0 hides it, and anything that is not a whole number reads as shown
+     *
+     * @param mixed $stored
+     * @param bool $expected
+     * @return void
+     */
+    #[TestWith(['0', false])]
+    #[TestWith([0, false])]
+    #[TestWith([false, false])]
+    #[TestWith(['1', true])]
+    #[TestWith([1, true])]
+    #[TestWith([null, true])]
+    #[TestWith(['', true])]
+    #[TestWith(['yes', true])]
+    #[TestWith([[1], true])]
+    public function testStoredAutoPlayToggleFlag(mixed $stored, bool $expected): void
+    {
+        $this->slider->setData(SliderInterface::SHOW_AUTOPLAY_TOGGLE, $stored);
+
+        self::assertSame($expected, $this->slider->isAutoPlayToggleEnabled());
+    }
+
+    /**
+     * The pause/play button flag is stored as the 0/1 the column holds, independent of auto play
+     *
+     * @return void
+     */
+    public function testAutoPlayToggleIsIndependentOfAutoPlay(): void
+    {
+        $this->slider->setAutoPlayEnabled(true)->setAutoPlayToggleEnabled(false);
+
+        self::assertSame(0, $this->slider->getData(SliderInterface::SHOW_AUTOPLAY_TOGGLE));
+        self::assertTrue($this->slider->isAutoPlayEnabled());
+        self::assertFalse($this->slider->isAutoPlayToggleEnabled());
+
+        $this->slider->setAutoPlayEnabled(false)->setAutoPlayToggleEnabled(true);
+
+        self::assertSame(1, $this->slider->getData(SliderInterface::SHOW_AUTOPLAY_TOGGLE));
+        self::assertFalse($this->slider->isAutoPlayEnabled());
+        self::assertTrue($this->slider->isAutoPlayToggleEnabled());
     }
 
     /**
@@ -301,6 +345,7 @@ class SliderTest extends TestCase
             ->setLoopEnabled(false)
             ->setLazyLoadEnabled(false)
             ->setAutoPlayEnabled(false)
+            ->setAutoPlayToggleEnabled(false)
             ->setNavigationEnabled(false)
             ->setPaginationEnabled(false);
 
@@ -314,6 +359,7 @@ class SliderTest extends TestCase
         self::assertFalse($this->slider->isLoopEnabled());
         self::assertFalse($this->slider->isLazyLoadEnabled());
         self::assertFalse($this->slider->isAutoPlayEnabled());
+        self::assertFalse($this->slider->isAutoPlayToggleEnabled());
         self::assertFalse($this->slider->isNavigationEnabled());
         self::assertFalse($this->slider->isPaginationEnabled());
 

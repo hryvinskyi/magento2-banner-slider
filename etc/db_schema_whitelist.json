@@ -14,6 +14,7 @@
             "lazy_load": true,
             "auto_play": true,
             "auto_play_timeout": true,
+            "show_autoplay_toggle": true,
             "nav": true,
             "dots": true,
             "responsive_items": true,

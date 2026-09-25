@@ -34,6 +34,8 @@
         <column xsi:type="boolean" name="auto_play" nullable="false" default="true" comment="Autoplay Enabled"/>
         <column xsi:type="int" name="auto_play_timeout" unsigned="true" nullable="false" default="5000"
                 comment="Autoplay Interval in Milliseconds"/>
+        <column xsi:type="boolean" name="show_autoplay_toggle" nullable="false" default="true"
+                comment="Autoplay Pause/Play Button Shown (only while autoplay is on)"/>
         <column xsi:type="boolean" name="nav" nullable="false" default="true" comment="Navigation Arrows Enabled"/>
         <column xsi:type="boolean" name="dots" nullable="false" default="true" comment="Pagination Dots Enabled"/>
         <column xsi:type="text" name="responsive_items" nullable="true"

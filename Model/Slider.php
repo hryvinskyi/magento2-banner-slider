@@ -340,6 +340,22 @@ class Slider extends AbstractEntityModel implements SliderInterface, IdentityInt
     /**
      * @inheritDoc
      */
+    public function isAutoPlayToggleEnabled(): bool
+    {
+        return $this->readBool(self::SHOW_AUTOPLAY_TOGGLE, true);
+    }
+
+    /**
+     * @inheritDoc
+     */
+    public function setAutoPlayToggleEnabled(bool $enabled): SliderInterface
+    {
+        return $this->setData(self::SHOW_AUTOPLAY_TOGGLE, (int)$enabled);
+    }
+
+    /**
+     * @inheritDoc
+     */
     public function isNavigationEnabled(): bool
     {
         return $this->readBool(self::NAV, true);

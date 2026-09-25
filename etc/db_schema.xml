@@ -1,12 +1,20 @@
 <?xml version="1.0"?>
 <!--
-  ~ Copyright (c) 2025. Volodymyr Hryvinskyi. All rights reserved.
-  ~ @author: <mailto:volodymyr@hryvinskyi.com>
-  -->
+/**
+ * Copyright (c) 2026. Volodymyr Hryvinskyi. All rights reserved.
+ * Author: Volodymyr Hryvinskyi <volodymyr@hryvinskyi.com>
+ * GitHub: https://github.com/hryvinskyi
+ */
+-->
 <schema xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
         xsi:noNamespaceSchemaLocation="urn:magento:framework:Setup/Declaration/Schema/etc/schema.xsd">
 
-    <!-- Main Slider Table -->
+    <!--
+        Every index and constraint referenceId equals the name Magento generates for it in the database, so this
+        file, db_schema_whitelist.json and the live schema read alike.
+    -->
+
+    <!-- Slider -->
     <table name="hryvinskyi_banner_slider" resource="default" engine="innodb" comment="Banner Slider Table">
         <column xsi:type="int" name="slider_id" unsigned="true" nullable="false" identity="true"
                 comment="Slider ID"/>
@@ -14,10 +22,10 @@
         <column xsi:type="smallint" name="status" unsigned="true" nullable="false" default="1"
                 comment="Status (0=Disabled, 1=Enabled)"/>
         <column xsi:type="varchar" name="location" nullable="true" length="255" comment="Location Identifier"/>
-        <column xsi:type="varchar" name="store_ids" nullable="true" length="255" comment="Store IDs"/>
-        <column xsi:type="varchar" name="customer_group_ids" nullable="true" length="255" comment="Customer Group IDs"/>
+        <column xsi:type="boolean" name="all_customer_groups" nullable="false" default="false"
+                comment="Visible to All Customer Groups (otherwise only the linked groups)"/>
         <column xsi:type="int" name="priority" unsigned="true" nullable="false" default="0"
-                comment="Priority for Ordering"/>
+                comment="Priority (lower value wins at a shared location)"/>
         <column xsi:type="varchar" name="effect" nullable="true" length="100" comment="Animation Effect"/>
         <column xsi:type="boolean" name="auto_width" nullable="false" default="false" comment="Auto Width Enabled"/>
         <column xsi:type="boolean" name="auto_height" nullable="false" default="false" comment="Auto Height Enabled"/>
@@ -25,17 +33,15 @@
         <column xsi:type="boolean" name="lazy_load" nullable="false" default="true" comment="Lazy Load Enabled"/>
         <column xsi:type="boolean" name="auto_play" nullable="false" default="true" comment="Autoplay Enabled"/>
         <column xsi:type="int" name="auto_play_timeout" unsigned="true" nullable="false" default="5000"
-                comment="Autoplay Timeout in Milliseconds"/>
+                comment="Autoplay Interval in Milliseconds"/>
         <column xsi:type="boolean" name="nav" nullable="false" default="true" comment="Navigation Arrows Enabled"/>
         <column xsi:type="boolean" name="dots" nullable="false" default="true" comment="Pagination Dots Enabled"/>
-        <column xsi:type="boolean" name="is_responsive" nullable="false" default="true"
-                comment="Responsive Mode Enabled"/>
         <column xsi:type="text" name="responsive_items" nullable="true"
-                comment="Responsive Breakpoints Configuration (JSON)"/>
+                comment="Slides per Page by Min Viewport Width (JSON list)"/>
         <column xsi:type="smallint" name="preload_banners_count" unsigned="true" nullable="false" default="0"
                 comment="Number of First Banners to Preload Images"/>
-        <column xsi:type="datetime" name="from_date" nullable="true" comment="Active From Date"/>
-        <column xsi:type="datetime" name="to_date" nullable="true" comment="Active To Date"/>
+        <column xsi:type="datetime" name="from_date" nullable="true" comment="Active From Date (UTC)"/>
+        <column xsi:type="datetime" name="to_date" nullable="true" comment="Active To Date (UTC)"/>
         <column xsi:type="text" name="custom_css" nullable="true" comment="Custom CSS Styles"/>
         <column xsi:type="timestamp" name="created_at" on_update="false" nullable="false" default="CURRENT_TIMESTAMP"
                 comment="Created At"/>
@@ -55,9 +61,68 @@
         <index referenceId="HRYVINSKYI_BANNER_SLIDER_PRIORITY" indexType="btree">
             <column name="priority"/>
         </index>
+        <index referenceId="HRYVINSKYI_BANNER_SLIDER_NAME_LOCATION" indexType="fulltext">
+            <column name="name"/>
+            <column name="location"/>
+        </index>
     </table>
 
-    <!-- Main Banner Table -->
+    <!-- Slider store views: store 0 means all store views; a slider without rows is visible nowhere -->
+    <table name="hryvinskyi_banner_slider_store" resource="default" engine="innodb"
+           comment="Banner Slider Store View Link Table">
+        <column xsi:type="int" name="slider_id" unsigned="true" nullable="false" comment="Slider ID"/>
+        <column xsi:type="smallint" name="store_id" unsigned="true" nullable="false"
+                comment="Store View ID (0 = All Store Views)"/>
+
+        <constraint xsi:type="primary" referenceId="PRIMARY">
+            <column name="slider_id"/>
+            <column name="store_id"/>
+        </constraint>
+
+        <constraint xsi:type="foreign" referenceId="FK_24C527F0EC13720C1CB39F1B045557A4"
+                    table="hryvinskyi_banner_slider_store" column="slider_id"
+                    referenceTable="hryvinskyi_banner_slider" referenceColumn="slider_id"
+                    onDelete="CASCADE"/>
+        <constraint xsi:type="foreign" referenceId="HRYVINSKYI_BANNER_SLIDER_STORE_STORE_ID_STORE_STORE_ID"
+                    table="hryvinskyi_banner_slider_store" column="store_id"
+                    referenceTable="store" referenceColumn="store_id"
+                    onDelete="CASCADE"/>
+
+        <index referenceId="HRYVINSKYI_BANNER_SLIDER_STORE_STORE_ID" indexType="btree">
+            <column name="store_id"/>
+        </index>
+    </table>
+
+    <!--
+        Slider customer groups: consulted only while the slider's all_customer_groups flag is off; with the flag
+        off and no rows the slider is visible to nobody
+    -->
+    <table name="hryvinskyi_banner_slider_customer_group" resource="default" engine="innodb"
+           comment="Banner Slider Customer Group Link Table">
+        <column xsi:type="int" name="slider_id" unsigned="true" nullable="false" comment="Slider ID"/>
+        <column xsi:type="int" name="customer_group_id" unsigned="true" nullable="false"
+                comment="Customer Group ID"/>
+
+        <constraint xsi:type="primary" referenceId="PRIMARY">
+            <column name="slider_id"/>
+            <column name="customer_group_id"/>
+        </constraint>
+
+        <constraint xsi:type="foreign" referenceId="FK_9FFD62145B0FB0AE6254069D128A3D9D"
+                    table="hryvinskyi_banner_slider_customer_group" column="slider_id"
+                    referenceTable="hryvinskyi_banner_slider" referenceColumn="slider_id"
+                    onDelete="CASCADE"/>
+        <constraint xsi:type="foreign" referenceId="FK_8316FA71850A8CA59CFC8A338B082C84"
+                    table="hryvinskyi_banner_slider_customer_group" column="customer_group_id"
+                    referenceTable="customer_group" referenceColumn="customer_group_id"
+                    onDelete="CASCADE"/>
+
+        <index referenceId="HRYVINSKYI_BANNER_SLIDER_CUSTOMER_GROUP_CUSTOMER_GROUP_ID" indexType="btree">
+            <column name="customer_group_id"/>
+        </index>
+    </table>
+
+    <!-- Banner -->
     <table name="hryvinskyi_banner_slider_banner" resource="default" engine="innodb" comment="Banner Table">
         <column xsi:type="int" name="banner_id" unsigned="true" nullable="false" identity="true"
                 comment="Banner ID"/>
@@ -68,88 +133,58 @@
         <column xsi:type="smallint" name="type" unsigned="true" nullable="false" default="0"
                 comment="Banner Type (0=Image, 1=Video, 2=Custom)"/>
         <column xsi:type="text" name="content" nullable="true" comment="Custom HTML Content"/>
-        <column xsi:type="varchar" name="image" nullable="true" length="255" comment="Desktop Image Path"/>
+        <column xsi:type="varchar" name="image" nullable="true" length="255" comment="Image Path (media-relative)"/>
+        <column xsi:type="int" name="image_width" unsigned="true" nullable="true" comment="Image Width in Pixels"/>
+        <column xsi:type="int" name="image_height" unsigned="true" nullable="true" comment="Image Height in Pixels"/>
         <column xsi:type="varchar" name="video_url" nullable="true" length="500"
-                comment="External Video URL (YouTube, Vimeo)"/>
+                comment="External Video URL"/>
         <column xsi:type="varchar" name="video_aspect_ratio" nullable="true" length="20" default="16:9"
                 comment="Video Aspect Ratio"/>
         <column xsi:type="varchar" name="video_path" nullable="true" length="255"
-                comment="Local Video File Path"/>
+                comment="Local Video File Path (media-relative)"/>
         <column xsi:type="boolean" name="video_as_background" nullable="false" default="false"
                 comment="Play Video as Background (autoplay, loop, muted, no controls)"/>
         <column xsi:type="varchar" name="link_url" nullable="true" length="500" comment="Banner Link URL"/>
         <column xsi:type="varchar" name="title" nullable="true" length="255" comment="Title/Alt Text"/>
         <column xsi:type="boolean" name="open_in_new_tab" nullable="false" default="true"
                 comment="Open Link in New Tab"/>
-        <column xsi:type="datetime" name="from_date" nullable="true" comment="Active From Date"/>
-        <column xsi:type="datetime" name="to_date" nullable="true" comment="Active To Date"/>
+        <column xsi:type="datetime" name="from_date" nullable="true" comment="Active From Date (UTC)"/>
+        <column xsi:type="datetime" name="to_date" nullable="true" comment="Active To Date (UTC)"/>
         <column xsi:type="int" name="position" unsigned="true" nullable="false" default="0"
                 comment="Display Position"/>
         <column xsi:type="boolean" name="is_preload" nullable="false" default="false"
                 comment="Preload Image in Head"/>
-        <column xsi:type="timestamp" name="created_at" on_update="false" nullable="true" comment="Created At"/>
-        <column xsi:type="timestamp" name="updated_at" on_update="false" nullable="true" comment="Updated At"/>
+        <column xsi:type="timestamp" name="created_at" on_update="false" nullable="true" default="CURRENT_TIMESTAMP"
+                comment="Created At"/>
+        <column xsi:type="timestamp" name="updated_at" on_update="true" nullable="true" default="CURRENT_TIMESTAMP"
+                comment="Updated At"/>
 
         <constraint xsi:type="primary" referenceId="PRIMARY">
             <column name="banner_id"/>
         </constraint>
 
-        <constraint xsi:type="foreign" referenceId="HRYVINSKYI_BANNER_SLIDER_BANNER_SLIDER_ID"
+        <constraint xsi:type="foreign" referenceId="FK_CB3DAEE3804E15EC83F8F5E1BC0C9D72"
                     table="hryvinskyi_banner_slider_banner" column="slider_id"
                     referenceTable="hryvinskyi_banner_slider" referenceColumn="slider_id"
                     onDelete="CASCADE"/>
 
-        <index referenceId="HRYVINSKYI_BANNER_SLIDER_BANNER_SLIDER_ID" indexType="btree">
-            <column name="slider_id"/>
-        </index>
         <index referenceId="HRYVINSKYI_BANNER_SLIDER_BANNER_STATUS" indexType="btree">
             <column name="status"/>
         </index>
-        <index referenceId="HRYVINSKYI_BANNER_SLIDER_BANNER_SLIDER_STATUS" indexType="btree">
+        <index referenceId="HRYVINSKYI_BANNER_SLIDER_BANNER_SLIDER_ID_STATUS" indexType="btree">
             <column name="slider_id"/>
             <column name="status"/>
         </index>
         <index referenceId="HRYVINSKYI_BANNER_SLIDER_BANNER_POSITION" indexType="btree">
             <column name="position"/>
         </index>
-        <index referenceId="HRYVINSKYI_BANNER_SLIDER_BANNER_FT" indexType="fulltext">
+        <index referenceId="HRYVINSKYI_BANNER_SLIDER_BANNER_NAME_LINK_URL" indexType="fulltext">
             <column name="name"/>
-            <column name="image"/>
             <column name="link_url"/>
         </index>
     </table>
 
-    <!-- Banner Image Table (for responsive images) -->
-    <table name="hryvinskyi_banner_slider_image" resource="default" engine="innodb"
-           comment="Banner Responsive Images Table">
-        <column xsi:type="int" name="image_id" unsigned="true" nullable="false" identity="true"
-                comment="Image ID"/>
-        <column xsi:type="int" name="banner_id" unsigned="true" nullable="false" comment="Banner ID"/>
-        <column xsi:type="varchar" name="title" nullable="true" length="255" comment="Image Title"/>
-        <column xsi:type="varchar" name="alt" nullable="true" length="255" comment="Image Alt Text"/>
-        <column xsi:type="varchar" name="picture_media" nullable="true" length="255"
-                comment="Picture Media Query (breakpoint)"/>
-        <column xsi:type="smallint" name="status" unsigned="true" nullable="false" default="1"
-                comment="Status"/>
-        <column xsi:type="varchar" name="image" nullable="true" length="255" comment="Image Path"/>
-        <column xsi:type="timestamp" name="created_at" on_update="false" nullable="true" comment="Created At"/>
-        <column xsi:type="timestamp" name="updated_at" on_update="false" nullable="true" comment="Updated At"/>
-
-        <constraint xsi:type="primary" referenceId="PRIMARY">
-            <column name="image_id"/>
-        </constraint>
-
-        <constraint xsi:type="foreign" referenceId="HRYVINSKYI_BANNER_SLIDER_IMAGE_BANNER_ID"
-                    table="hryvinskyi_banner_slider_image" column="banner_id"
-                    referenceTable="hryvinskyi_banner_slider_banner" referenceColumn="banner_id"
-                    onDelete="CASCADE"/>
-
-        <index referenceId="HRYVINSKYI_BANNER_SLIDER_IMAGE_BANNER_ID" indexType="btree">
-            <column name="banner_id"/>
-        </index>
-    </table>
-
-    <!-- Breakpoint Configuration Table (per slider) -->
+    <!-- Breakpoint (per slider) -->
     <table name="hryvinskyi_banner_slider_breakpoint" resource="default" engine="innodb"
            comment="Slider Breakpoint Configuration Table">
         <column xsi:type="int" name="breakpoint_id" unsigned="true" nullable="false" identity="true"
@@ -163,8 +198,8 @@
                 comment="Minimum Viewport Width for Ordering"/>
         <column xsi:type="int" name="target_width" unsigned="true" nullable="false"
                 comment="Output Image Width"/>
-        <column xsi:type="int" name="target_height" unsigned="true" nullable="false"
-                comment="Output Image Height"/>
+        <column xsi:type="int" name="target_height" unsigned="true" nullable="true"
+                comment="Output Image Height (NULL = keep the crop aspect ratio)"/>
         <column xsi:type="int" name="sort_order" unsigned="true" nullable="false" default="0"
                 comment="Display Order"/>
         <column xsi:type="smallint" name="status" unsigned="true" nullable="false" default="1"
@@ -178,19 +213,16 @@
             <column name="breakpoint_id"/>
         </constraint>
 
-        <constraint xsi:type="foreign" referenceId="HRYVINSKYI_BANNER_SLIDER_BREAKPOINT_SLIDER_ID"
+        <constraint xsi:type="foreign" referenceId="FK_0D702F77F20A8DC93DAF40C60375EF11"
                     table="hryvinskyi_banner_slider_breakpoint" column="slider_id"
                     referenceTable="hryvinskyi_banner_slider" referenceColumn="slider_id"
                     onDelete="CASCADE"/>
 
-        <constraint xsi:type="unique" referenceId="HRYVINSKYI_BANNER_SLIDER_BREAKPOINT_SLIDER_IDENTIFIER">
+        <constraint xsi:type="unique" referenceId="HRYVINSKYI_BANNER_SLIDER_BREAKPOINT_SLIDER_ID_IDENTIFIER">
             <column name="slider_id"/>
             <column name="identifier"/>
         </constraint>
 
-        <index referenceId="HRYVINSKYI_BANNER_SLIDER_BREAKPOINT_SLIDER_ID" indexType="btree">
-            <column name="slider_id"/>
-        </index>
         <index referenceId="HRYVINSKYI_BANNER_SLIDER_BREAKPOINT_STATUS" indexType="btree">
             <column name="status"/>
         </index>
@@ -199,7 +231,7 @@
         </index>
     </table>
 
-    <!-- Responsive Crop Configuration Table (per banner/breakpoint) -->
+    <!-- Responsive crop (per banner and breakpoint); the original-format output only -->
     <table name="hryvinskyi_banner_slider_responsive_crop" resource="default" engine="innodb"
            comment="Banner Responsive Crop Configuration Table">
         <column xsi:type="int" name="crop_id" unsigned="true" nullable="false" identity="true"
@@ -207,7 +239,7 @@
         <column xsi:type="int" name="banner_id" unsigned="true" nullable="false" comment="Banner ID"/>
         <column xsi:type="int" name="breakpoint_id" unsigned="true" nullable="false" comment="Breakpoint ID"/>
         <column xsi:type="varchar" name="source_image" nullable="true" length="255"
-                comment="Source Image for this Crop"/>
+                comment="Source Image for this Crop (NULL = the banner image)"/>
         <column xsi:type="int" name="crop_x" unsigned="true" nullable="false" default="0"
                 comment="Crop X Coordinate"/>
         <column xsi:type="int" name="crop_y" unsigned="true" nullable="false" default="0"
@@ -217,21 +249,7 @@
         <column xsi:type="int" name="crop_height" unsigned="true" nullable="false" default="0"
                 comment="Crop Height from Source"/>
         <column xsi:type="varchar" name="cropped_image" nullable="true" length="255"
-                comment="Generated Cropped Image Path"/>
-        <column xsi:type="varchar" name="webp_image" nullable="true" length="255"
-                comment="Generated WebP Image Path"/>
-        <column xsi:type="varchar" name="avif_image" nullable="true" length="255"
-                comment="Generated AVIF Image Path"/>
-        <column xsi:type="boolean" name="generate_webp" nullable="false" default="true"
-                comment="Flag to Generate WebP"/>
-        <column xsi:type="boolean" name="generate_avif" nullable="false" default="false"
-                comment="Flag to Generate AVIF"/>
-        <column xsi:type="smallint" name="webp_quality" unsigned="true" nullable="false" default="85"
-                comment="WebP Quality 1-100"/>
-        <column xsi:type="smallint" name="avif_quality" unsigned="true" nullable="false" default="80"
-                comment="AVIF Quality 1-100"/>
-        <column xsi:type="int" name="sort_order" unsigned="true" nullable="false" default="0"
-                comment="Sort Order (inherited from breakpoint)"/>
+                comment="Generated Original-Format Image Path"/>
         <column xsi:type="smallint" name="status" unsigned="true" nullable="false" default="1"
                 comment="Status (0=Disabled, 1=Enabled)"/>
         <column xsi:type="timestamp" name="created_at" on_update="false" nullable="false" default="CURRENT_TIMESTAMP"
@@ -243,34 +261,56 @@
             <column name="crop_id"/>
         </constraint>
 
-        <constraint xsi:type="foreign" referenceId="HRYVINSKYI_BANNER_SLIDER_RESP_CROP_BANNER_ID"
+        <constraint xsi:type="foreign" referenceId="FK_DCA998838E16C3E980906C07E449B887"
                     table="hryvinskyi_banner_slider_responsive_crop" column="banner_id"
                     referenceTable="hryvinskyi_banner_slider_banner" referenceColumn="banner_id"
                     onDelete="CASCADE"/>
 
-        <constraint xsi:type="foreign" referenceId="HRYVINSKYI_BANNER_SLIDER_RESP_CROP_BREAKPOINT_ID"
+        <constraint xsi:type="foreign" referenceId="FK_EBA083D31A4FF14674585024A252BA9C"
                     table="hryvinskyi_banner_slider_responsive_crop" column="breakpoint_id"
                     referenceTable="hryvinskyi_banner_slider_breakpoint" referenceColumn="breakpoint_id"
                     onDelete="CASCADE"/>
 
-        <constraint xsi:type="unique" referenceId="HRYVINSKYI_BANNER_SLIDER_RESP_CROP_BANNER_BREAKPOINT">
+        <constraint xsi:type="unique" referenceId="HRYVINSKYI_BANNER_SLIDER_RESPONSIVE_CROP_BANNER_ID_BREAKPOINT_ID">
             <column name="banner_id"/>
             <column name="breakpoint_id"/>
         </constraint>
 
-        <index referenceId="HRYVINSKYI_BANNER_SLIDER_RESP_CROP_BANNER_ID" indexType="btree">
-            <column name="banner_id"/>
-        </index>
-        <index referenceId="HRYVINSKYI_BANNER_SLIDER_RESP_CROP_BREAKPOINT_ID" indexType="btree">
+        <index referenceId="HRYVINSKYI_BANNER_SLIDER_RESPONSIVE_CROP_BREAKPOINT_ID" indexType="btree">
             <column name="breakpoint_id"/>
         </index>
-        <index referenceId="HRYVINSKYI_BANNER_SLIDER_RESP_CROP_STATUS" indexType="btree">
-            <column name="status"/>
-        </index>
-        <index referenceId="HRYVINSKYI_BANNER_SLIDER_RESP_CROP_BANNER_STATUS" indexType="btree">
+        <index referenceId="HRYVINSKYI_BANNER_SLIDER_RESPONSIVE_CROP_BANNER_ID_STATUS" indexType="btree">
             <column name="banner_id"/>
             <column name="status"/>
         </index>
+    </table>
+
+    <!-- Crop variant: one extra output format of a crop at a quality; path is set once the file is generated -->
+    <table name="hryvinskyi_banner_slider_crop_variant" resource="default" engine="innodb"
+           comment="Banner Responsive Crop Format Variant Table">
+        <column xsi:type="int" name="variant_id" unsigned="true" nullable="false" identity="true"
+                comment="Variant ID"/>
+        <column xsi:type="int" name="crop_id" unsigned="true" nullable="false" comment="Crop ID"/>
+        <column xsi:type="varchar" name="format" nullable="false" length="16"
+                comment="Image Format Code (e.g., webp, avif)"/>
+        <column xsi:type="smallint" name="quality" unsigned="true" nullable="false" default="85"
+                comment="Encoding Quality 1-100"/>
+        <column xsi:type="varchar" name="path" nullable="true" length="255"
+                comment="Generated Image Path (NULL until generated)"/>
+
+        <constraint xsi:type="primary" referenceId="PRIMARY">
+            <column name="variant_id"/>
+        </constraint>
+
+        <constraint xsi:type="foreign" referenceId="FK_FE4F4FE1BC3569CF8B86413DF2BA6D25"
+                    table="hryvinskyi_banner_slider_crop_variant" column="crop_id"
+                    referenceTable="hryvinskyi_banner_slider_responsive_crop" referenceColumn="crop_id"
+                    onDelete="CASCADE"/>
+
+        <constraint xsi:type="unique" referenceId="HRYVINSKYI_BANNER_SLIDER_CROP_VARIANT_CROP_ID_FORMAT">
+            <column name="crop_id"/>
+            <column name="format"/>
+        </constraint>
     </table>
 
 </schema>

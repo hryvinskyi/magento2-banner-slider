@@ -9,22 +9,40 @@ declare(strict_types=1);
 
 namespace Hryvinskyi\BannerSlider\Model;
 
+use Hryvinskyi\BannerSlider\Model\Banner\BannerUrlPolicy;
+use Hryvinskyi\BannerSlider\Model\Data\MediaRelativePath;
+use Hryvinskyi\BannerSlider\Model\Data\RejectedStoredValueLog;
 use Hryvinskyi\BannerSliderApi\Api\Data\BannerExtensionInterface;
 use Hryvinskyi\BannerSliderApi\Api\Data\BannerInterface;
+use Hryvinskyi\BannerSliderApi\Api\Data\SliderInterface;
+use Hryvinskyi\BannerSliderApi\Api\Value\ActiveWindow;
+use Hryvinskyi\BannerSliderApi\Api\Value\AspectRatio;
+use Hryvinskyi\BannerSliderApi\Api\Value\AspectRatioParser;
+use Hryvinskyi\BannerSliderApi\Api\Value\BannerType;
+use Hryvinskyi\BannerSliderApi\Api\Value\Dimensions;
+use Magento\Framework\Api\AttributeValueFactory;
+use Magento\Framework\Api\ExtensionAttributesFactory;
+use Magento\Framework\Data\Collection\AbstractDb;
 use Magento\Framework\DataObject\IdentityInterface;
-use Magento\Framework\Model\AbstractExtensibleModel;
+use Magento\Framework\Model\Context;
+use Magento\Framework\Model\ResourceModel\AbstractResource;
+use Magento\Framework\Registry;
 
 /**
- * Banner model
+ * Stored banner: typed accessors over a `hryvinskyi_banner_slider_banner` row.
+ *
+ * Getters never fail on stored data: a type that is not a known case reads as custom content, an unreadable aspect
+ * ratio reads as 16:9, a partial image size reads as unknown, an inverted window reads as its start, and a link URL
+ * the URL policy rejects reads as none and is logged (surrounding whitespace, which browsers drop from a link, is
+ * trimmed first; see RejectedStoredValueLog). Setters guard the rules of their own field (URL schemes, relative
+ * media paths); rules that depend on the banner type are the banner validator's.
  */
-class Banner extends AbstractExtensibleModel implements BannerInterface, IdentityInterface
+class Banner extends AbstractEntityModel implements BannerInterface, IdentityInterface
 {
-    public const CACHE_TAG = 'hryvinskyi_banner_slider_banner';
-
     /**
      * @var string
      */
-    protected $_cacheTag = self::CACHE_TAG;
+    protected $_cacheTag = BannerInterface::CACHE_TAG;
 
     /**
      * @var string
@@ -37,6 +55,41 @@ class Banner extends AbstractExtensibleModel implements BannerInterface, Identit
     protected $_eventObject = 'banner';
 
     /**
+     * @param Context $context
+     * @param Registry $registry
+     * @param ExtensionAttributesFactory $extensionFactory
+     * @param AttributeValueFactory $customAttributeFactory
+     * @param AspectRatioParser $aspectRatioParser
+     * @param BannerUrlPolicy $urlPolicy
+     * @param RejectedStoredValueLog $rejectedValueLog
+     * @param AbstractResource|null $resource
+     * @param AbstractDb|null $resourceCollection
+     * @param array<string,mixed> $data
+     */
+    public function __construct(
+        Context $context,
+        Registry $registry,
+        ExtensionAttributesFactory $extensionFactory,
+        AttributeValueFactory $customAttributeFactory,
+        private readonly AspectRatioParser $aspectRatioParser,
+        private readonly BannerUrlPolicy $urlPolicy,
+        private readonly RejectedStoredValueLog $rejectedValueLog,
+        ?AbstractResource $resource = null,
+        ?AbstractDb $resourceCollection = null,
+        array $data = []
+    ) {
+        parent::__construct(
+            $context,
+            $registry,
+            $extensionFactory,
+            $customAttributeFactory,
+            $resource,
+            $resourceCollection,
+            $data
+        );
+    }
+
+    /**
      * @inheritDoc
      */
     protected function _construct(): void
@@ -45,17 +98,30 @@ class Banner extends AbstractExtensibleModel implements BannerInterface, Identit
     }
 
     /**
-     * @inheritDoc
+     * Cache tags of every page showing this banner: its own tag and the tag of its slider
+     *
+     * When the banner moves to another slider, the previous slider's tag is included too.
+     *
+     * @return list<string>
      */
     public function getIdentities(): array
     {
-        $identities = [self::CACHE_TAG . '_' . $this->getId()];
-
-        if ($this->getSliderId()) {
-            $identities[] = Slider::CACHE_TAG . '_' . $this->getSliderId();
+        $tags = [];
+        $bannerId = $this->getBannerId();
+        if ($bannerId !== null) {
+            $tags[] = BannerInterface::CACHE_TAG . '_' . $bannerId;
         }
 
-        return $identities;
+        $originalSliderId = $this->getOrigData(self::SLIDER_ID);
+        $sliderIds = [
+            $this->getSliderId(),
+            is_numeric($originalSliderId) ? (int)$originalSliderId : null,
+        ];
+        foreach (array_unique(array_filter($sliderIds, fn (?int $id): bool => $id !== null && $id > 0)) as $id) {
+            $tags[] = SliderInterface::CACHE_TAG . '_' . $id;
+        }
+
+        return $tags;
     }
 
     /**
@@ -63,15 +129,16 @@ class Banner extends AbstractExtensibleModel implements BannerInterface, Identit
      */
     public function getBannerId(): ?int
     {
-        $id = $this->getData(self::BANNER_ID);
-        return $id !== null ? (int)$id : null;
+        return $this->readId(self::BANNER_ID);
     }
 
     /**
      * @inheritDoc
      */
-    public function setBannerId(?int $bannerId): BannerInterface
+    public function setBannerId(int $bannerId): BannerInterface
     {
+        $this->assertPositiveId('Banner id', $bannerId);
+
         return $this->setData(self::BANNER_ID, $bannerId);
     }
 
@@ -80,146 +147,74 @@ class Banner extends AbstractExtensibleModel implements BannerInterface, Identit
      */
     public function getSliderId(): ?int
     {
-        $id = $this->getData(self::SLIDER_ID);
-        return $id !== null ? (int)$id : null;
+        return $this->readId(self::SLIDER_ID);
     }
 
     /**
      * @inheritDoc
      */
-    public function setSliderId(?int $sliderId): BannerInterface
+    public function setSliderId(int $sliderId): BannerInterface
     {
+        $this->assertPositiveId('Banner slider id', $sliderId);
+
         return $this->setData(self::SLIDER_ID, $sliderId);
     }
 
     /**
      * @inheritDoc
      */
-    public function getName(): ?string
+    public function getName(): string
     {
-        return $this->getData(self::NAME);
+        return $this->readString(self::NAME) ?? '';
     }
 
     /**
      * @inheritDoc
      */
-    public function setName(?string $name): BannerInterface
+    public function setName(string $name): BannerInterface
     {
+        $this->assertNotBlank('Banner name', $name);
+
         return $this->setData(self::NAME, $name);
     }
 
     /**
      * @inheritDoc
      */
-    public function getImage(): ?string
+    public function isEnabled(): bool
     {
-        return $this->getData(self::IMAGE);
+        return $this->readBool(self::STATUS, true);
     }
 
     /**
      * @inheritDoc
      */
-    public function setImage(?string $image): BannerInterface
+    public function setIsEnabled(bool $enabled): BannerInterface
     {
-        return $this->setData(self::IMAGE, $image);
+        return $this->setData(self::STATUS, (int)$enabled);
+    }
+
+    /**
+     * What the banner shows; image when none is set, custom content for a stored value that is not a known type
+     *
+     * @return BannerType
+     */
+    public function getType(): BannerType
+    {
+        if ($this->getData(self::TYPE) === null) {
+            return BannerType::IMAGE;
+        }
+        $stored = $this->readInt(self::TYPE);
+
+        return $stored === null ? BannerType::CUSTOM : BannerType::tryFrom($stored) ?? BannerType::CUSTOM;
     }
 
     /**
      * @inheritDoc
      */
-    public function getVideoUrl(): ?string
+    public function setType(BannerType $type): BannerInterface
     {
-        return $this->getData(self::VIDEO_URL);
-    }
-
-    /**
-     * @inheritDoc
-     */
-    public function setVideoUrl(?string $videoUrl): BannerInterface
-    {
-        return $this->setData(self::VIDEO_URL, $videoUrl);
-    }
-
-    /**
-     * @inheritDoc
-     */
-    public function getVideoAspectRatio(): ?string
-    {
-        return $this->getData(self::VIDEO_ASPECT_RATIO);
-    }
-
-    /**
-     * @inheritDoc
-     */
-    public function setVideoAspectRatio(?string $videoAspectRatio): BannerInterface
-    {
-        return $this->setData(self::VIDEO_ASPECT_RATIO, $videoAspectRatio);
-    }
-
-    /**
-     * @inheritDoc
-     */
-    public function getVideoPath(): ?string
-    {
-        return $this->getData(self::VIDEO_PATH);
-    }
-
-    /**
-     * @inheritDoc
-     */
-    public function setVideoPath(?string $videoPath): BannerInterface
-    {
-        return $this->setData(self::VIDEO_PATH, $videoPath);
-    }
-
-    /**
-     * @inheritDoc
-     */
-    public function isVideoAsBackground(): bool
-    {
-        return (bool)$this->getData(self::VIDEO_AS_BACKGROUND);
-    }
-
-    /**
-     * @inheritDoc
-     */
-    public function setVideoAsBackground(bool $videoAsBackground): BannerInterface
-    {
-        return $this->setData(self::VIDEO_AS_BACKGROUND, $videoAsBackground);
-    }
-
-    /**
-     * @inheritDoc
-     */
-    public function getStatus(): ?int
-    {
-        $status = $this->getData(self::STATUS);
-        return $status !== null ? (int)$status : null;
-    }
-
-    /**
-     * @inheritDoc
-     */
-    public function setStatus(?int $status): BannerInterface
-    {
-        return $this->setData(self::STATUS, $status);
-    }
-
-    /**
-     * @inheritDoc
-     */
-    public function getType(): ?int
-    {
-        $type = $this->getData(self::TYPE);
-        return $type !== null ? (int)$type : null;
-    }
-
-    /**
-     * @inheritDoc
-     */
-    public function setType(?int $type): BannerInterface
-    {
-        return $this->setData(self::TYPE, $type);
+        return $this->setData(self::TYPE, $type->value);
     }
 
     /**
@@ -227,7 +222,7 @@ class Banner extends AbstractExtensibleModel implements BannerInterface, Identit
      */
     public function getContent(): ?string
     {
-        return $this->getData(self::CONTENT);
+        return $this->readString(self::CONTENT);
     }
 
     /**
@@ -241,9 +236,142 @@ class Banner extends AbstractExtensibleModel implements BannerInterface, Identit
     /**
      * @inheritDoc
      */
+    public function getImage(): ?string
+    {
+        return $this->readNonBlankString(self::IMAGE);
+    }
+
+    /**
+     * @inheritDoc
+     */
+    public function setImage(?string $image): BannerInterface
+    {
+        return $this->setData(self::IMAGE, $image === null ? null : (new MediaRelativePath($image))->toString());
+    }
+
+    /**
+     * @inheritDoc
+     */
+    public function getImageDimensions(): ?Dimensions
+    {
+        $width = $this->readInt(self::IMAGE_WIDTH);
+        $height = $this->readInt(self::IMAGE_HEIGHT);
+        if ($width === null || $height === null || $width < 1 || $height < 1) {
+            return null;
+        }
+
+        return new Dimensions($width, $height);
+    }
+
+    /**
+     * @inheritDoc
+     */
+    public function setImageDimensions(?Dimensions $dimensions): BannerInterface
+    {
+        $this->setData(self::IMAGE_WIDTH, $dimensions?->getWidth());
+
+        return $this->setData(self::IMAGE_HEIGHT, $dimensions?->getHeight());
+    }
+
+    /**
+     * @inheritDoc
+     */
+    public function getVideoUrl(): ?string
+    {
+        return $this->readNonBlankString(self::VIDEO_URL);
+    }
+
+    /**
+     * @inheritDoc
+     */
+    public function setVideoUrl(?string $videoUrl): BannerInterface
+    {
+        if ($videoUrl !== null) {
+            $this->urlPolicy->assertVideoUrl($videoUrl);
+        }
+
+        return $this->setData(self::VIDEO_URL, $videoUrl);
+    }
+
+    /**
+     * @inheritDoc
+     */
+    public function getVideoPath(): ?string
+    {
+        return $this->readNonBlankString(self::VIDEO_PATH);
+    }
+
+    /**
+     * @inheritDoc
+     */
+    public function setVideoPath(?string $videoPath): BannerInterface
+    {
+        return $this->setData(
+            self::VIDEO_PATH,
+            $videoPath === null ? null : (new MediaRelativePath($videoPath))->toString()
+        );
+    }
+
+    /**
+     * @inheritDoc
+     */
+    public function getVideoAspectRatio(): AspectRatio
+    {
+        $stored = $this->readNonBlankString(self::VIDEO_ASPECT_RATIO);
+        if ($stored !== null) {
+            try {
+                return $this->aspectRatioParser->parse($stored);
+            } catch (\InvalidArgumentException) {
+                return $this->defaultAspectRatio();
+            }
+        }
+
+        return $this->defaultAspectRatio();
+    }
+
+    /**
+     * @inheritDoc
+     */
+    public function setVideoAspectRatio(AspectRatio $aspectRatio): BannerInterface
+    {
+        return $this->setData(self::VIDEO_ASPECT_RATIO, $aspectRatio->toString());
+    }
+
+    /**
+     * @inheritDoc
+     */
+    public function isVideoAsBackground(): bool
+    {
+        return $this->readBool(self::VIDEO_AS_BACKGROUND, false);
+    }
+
+    /**
+     * @inheritDoc
+     */
+    public function setVideoAsBackground(bool $asBackground): BannerInterface
+    {
+        return $this->setData(self::VIDEO_AS_BACKGROUND, (int)$asBackground);
+    }
+
+    /**
+     * @inheritDoc
+     */
     public function getLinkUrl(): ?string
     {
-        return $this->getData(self::LINK_URL);
+        $linkUrl = $this->readNonBlankString(self::LINK_URL);
+        if ($linkUrl === null) {
+            return null;
+        }
+        $linkUrl = trim($linkUrl);
+        try {
+            $this->urlPolicy->assertLinkUrl($linkUrl);
+        } catch (\InvalidArgumentException $exception) {
+            $this->rejectedValueLog->report('banner', $this->getBannerId(), self::LINK_URL, $exception->getMessage());
+
+            return null;
+        }
+
+        return $linkUrl;
     }
 
     /**
@@ -251,6 +379,10 @@ class Banner extends AbstractExtensibleModel implements BannerInterface, Identit
      */
     public function setLinkUrl(?string $linkUrl): BannerInterface
     {
+        if ($linkUrl !== null) {
+            $this->urlPolicy->assertLinkUrl($linkUrl);
+        }
+
         return $this->setData(self::LINK_URL, $linkUrl);
     }
 
@@ -259,7 +391,7 @@ class Banner extends AbstractExtensibleModel implements BannerInterface, Identit
      */
     public function getTitle(): ?string
     {
-        return $this->getData(self::TITLE);
+        return $this->readNonBlankString(self::TITLE);
     }
 
     /**
@@ -275,7 +407,7 @@ class Banner extends AbstractExtensibleModel implements BannerInterface, Identit
      */
     public function isOpenInNewTab(): bool
     {
-        return (bool)$this->getData(self::OPEN_IN_NEW_TAB);
+        return $this->readBool(self::OPEN_IN_NEW_TAB, true);
     }
 
     /**
@@ -283,87 +415,42 @@ class Banner extends AbstractExtensibleModel implements BannerInterface, Identit
      */
     public function setOpenInNewTab(bool $openInNewTab): BannerInterface
     {
-        return $this->setData(self::OPEN_IN_NEW_TAB, $openInNewTab);
+        return $this->setData(self::OPEN_IN_NEW_TAB, (int)$openInNewTab);
     }
 
     /**
      * @inheritDoc
      */
-    public function getCreatedAt(): ?string
+    public function getActiveWindow(): ActiveWindow
     {
-        return $this->getData(self::CREATED_AT);
+        return $this->readActiveWindow(self::FROM_DATE, self::TO_DATE);
     }
 
     /**
      * @inheritDoc
      */
-    public function setCreatedAt(?string $createdAt): BannerInterface
+    public function setActiveWindow(ActiveWindow $window): BannerInterface
     {
-        return $this->setData(self::CREATED_AT, $createdAt);
+        $this->storeActiveWindow($window, self::FROM_DATE, self::TO_DATE);
+
+        return $this;
     }
 
     /**
      * @inheritDoc
      */
-    public function getUpdatedAt(): ?string
+    public function getPosition(): int
     {
-        return $this->getData(self::UPDATED_AT);
+        return max(0, $this->readInt(self::POSITION) ?? 0);
     }
 
     /**
      * @inheritDoc
      */
-    public function setUpdatedAt(?string $updatedAt): BannerInterface
+    public function setPosition(int $position): BannerInterface
     {
-        return $this->setData(self::UPDATED_AT, $updatedAt);
-    }
+        $this->assertNotNegative('Banner position', $position);
 
-    /**
-     * @inheritDoc
-     */
-    public function getFromDate(): ?string
-    {
-        return $this->getData(self::FROM_DATE);
-    }
-
-    /**
-     * @inheritDoc
-     */
-    public function setFromDate(?string $fromDate): BannerInterface
-    {
-        return $this->setData(self::FROM_DATE, $fromDate);
-    }
-
-    /**
-     * @inheritDoc
-     */
-    public function getToDate(): ?string
-    {
-        return $this->getData(self::TO_DATE);
-    }
-
-    /**
-     * @inheritDoc
-     */
-    public function setToDate(?string $toDate): BannerInterface
-    {
-        return $this->setData(self::TO_DATE, $toDate);
-    }
-
-    /**
-     * @inheritDoc
-     */
-    public function getPosition(): ?int
-    {
-        $position = $this->getData(self::POSITION);
-        return $position !== null ? (int)$position : null;
-    }
-
-    /**
-     * @inheritDoc
-     */
-    public function setPosition(?int $position): BannerInterface
-    {
         return $this->setData(self::POSITION, $position);
     }
 
@@ -372,15 +459,31 @@ class Banner extends AbstractExtensibleModel implements BannerInterface, Identit
      */
     public function isPreloadEnabled(): bool
     {
-        return (bool)$this->getData(self::IS_PRELOAD);
+        return $this->readBool(self::IS_PRELOAD, false);
     }
 
     /**
      * @inheritDoc
      */
-    public function setIsPreload(bool $isPreload): BannerInterface
+    public function setPreloadEnabled(bool $enabled): BannerInterface
     {
-        return $this->setData(self::IS_PRELOAD, $isPreload);
+        return $this->setData(self::IS_PRELOAD, (int)$enabled);
+    }
+
+    /**
+     * @inheritDoc
+     */
+    public function getCreatedAt(): ?string
+    {
+        return $this->readNonBlankString(self::CREATED_AT);
+    }
+
+    /**
+     * @inheritDoc
+     */
+    public function getUpdatedAt(): ?string
+    {
+        return $this->readNonBlankString(self::UPDATED_AT);
     }
 
     /**
@@ -388,7 +491,9 @@ class Banner extends AbstractExtensibleModel implements BannerInterface, Identit
      */
     public function getExtensionAttributes(): ?BannerExtensionInterface
     {
-        return $this->_getExtensionAttributes();
+        $extensionAttributes = $this->_getExtensionAttributes();
+
+        return $extensionAttributes instanceof BannerExtensionInterface ? $extensionAttributes : null;
     }
 
     /**
@@ -397,5 +502,15 @@ class Banner extends AbstractExtensibleModel implements BannerInterface, Identit
     public function setExtensionAttributes(BannerExtensionInterface $extensionAttributes): BannerInterface
     {
         return $this->_setExtensionAttributes($extensionAttributes);
+    }
+
+    /**
+     * The ratio used when none can be read
+     *
+     * @return AspectRatio
+     */
+    private function defaultAspectRatio(): AspectRatio
+    {
+        return new AspectRatio(AspectRatio::DEFAULT_WIDTH, AspectRatio::DEFAULT_HEIGHT);
     }
 }

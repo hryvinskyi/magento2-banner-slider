@@ -9,16 +9,26 @@ declare(strict_types=1);
 
 namespace Hryvinskyi\BannerSlider\Model;
 
+use Hryvinskyi\BannerSlider\Model\Data\MediaRelativePath;
+use Hryvinskyi\BannerSliderApi\Api\Data\BannerInterface;
+use Hryvinskyi\BannerSliderApi\Api\Data\CropVariantInterface;
 use Hryvinskyi\BannerSliderApi\Api\Data\ResponsiveCropExtensionInterface;
 use Hryvinskyi\BannerSliderApi\Api\Data\ResponsiveCropInterface;
+use Hryvinskyi\BannerSliderApi\Api\Value\CropRect;
 use Magento\Framework\DataObject\IdentityInterface;
-use Magento\Framework\Model\AbstractExtensibleModel;
 
 /**
- * Responsive crop model
+ * Stored crop: typed accessors over a `hryvinskyi_banner_slider_responsive_crop` row and its variant rows.
+ *
+ * A stored rectangle of all zeros, or one with no width or height, reads as "no rectangle". The variants are held
+ * under the `variants` data key; the crop resource model loads them and replaces the variant rows on save, but only
+ * when the key is set, so saving a crop that never had its variants loaded or set keeps the stored ones.
  */
-class ResponsiveCrop extends AbstractExtensibleModel implements ResponsiveCropInterface, IdentityInterface
+class ResponsiveCrop extends AbstractEntityModel implements ResponsiveCropInterface, IdentityInterface
 {
+    /**
+     * Cache tag of every crop; `CACHE_TAG . '_' . <crop id>` tags one crop
+     */
     public const CACHE_TAG = 'hryvinskyi_banner_slider_responsive_crop';
 
     /**
@@ -45,11 +55,23 @@ class ResponsiveCrop extends AbstractExtensibleModel implements ResponsiveCropIn
     }
 
     /**
-     * @inheritDoc
+     * Cache tags of every page affected by this crop: its own tag and the tag of its banner
+     *
+     * @return list<string>
      */
     public function getIdentities(): array
     {
-        return [self::CACHE_TAG . '_' . $this->getId()];
+        $tags = [];
+        $cropId = $this->getCropId();
+        if ($cropId !== null) {
+            $tags[] = self::CACHE_TAG . '_' . $cropId;
+        }
+        $bannerId = $this->getBannerId();
+        if ($bannerId !== null) {
+            $tags[] = BannerInterface::CACHE_TAG . '_' . $bannerId;
+        }
+
+        return $tags;
     }
 
     /**
@@ -57,15 +79,16 @@ class ResponsiveCrop extends AbstractExtensibleModel implements ResponsiveCropIn
      */
     public function getCropId(): ?int
     {
-        $id = $this->getData(self::CROP_ID);
-        return $id !== null ? (int)$id : null;
+        return $this->readId(self::CROP_ID);
     }
 
     /**
      * @inheritDoc
      */
-    public function setCropId(?int $cropId): ResponsiveCropInterface
+    public function setCropId(int $cropId): ResponsiveCropInterface
     {
+        $this->assertPositiveId('Crop id', $cropId);
+
         return $this->setData(self::CROP_ID, $cropId);
     }
 
@@ -74,15 +97,16 @@ class ResponsiveCrop extends AbstractExtensibleModel implements ResponsiveCropIn
      */
     public function getBannerId(): ?int
     {
-        $id = $this->getData(self::BANNER_ID);
-        return $id !== null ? (int)$id : null;
+        return $this->readId(self::BANNER_ID);
     }
 
     /**
      * @inheritDoc
      */
-    public function setBannerId(?int $bannerId): ResponsiveCropInterface
+    public function setBannerId(int $bannerId): ResponsiveCropInterface
     {
+        $this->assertPositiveId('Crop banner id', $bannerId);
+
         return $this->setData(self::BANNER_ID, $bannerId);
     }
 
@@ -91,15 +115,16 @@ class ResponsiveCrop extends AbstractExtensibleModel implements ResponsiveCropIn
      */
     public function getBreakpointId(): ?int
     {
-        $id = $this->getData(self::BREAKPOINT_ID);
-        return $id !== null ? (int)$id : null;
+        return $this->readId(self::BREAKPOINT_ID);
     }
 
     /**
      * @inheritDoc
      */
-    public function setBreakpointId(?int $breakpointId): ResponsiveCropInterface
+    public function setBreakpointId(int $breakpointId): ResponsiveCropInterface
     {
+        $this->assertPositiveId('Crop breakpoint id', $breakpointId);
+
         return $this->setData(self::BREAKPOINT_ID, $breakpointId);
     }
 
@@ -108,7 +133,7 @@ class ResponsiveCrop extends AbstractExtensibleModel implements ResponsiveCropIn
      */
     public function getSourceImage(): ?string
     {
-        return $this->getData(self::SOURCE_IMAGE);
+        return $this->readNonBlankString(self::SOURCE_IMAGE);
     }
 
     /**
@@ -116,75 +141,38 @@ class ResponsiveCrop extends AbstractExtensibleModel implements ResponsiveCropIn
      */
     public function setSourceImage(?string $sourceImage): ResponsiveCropInterface
     {
-        return $this->setData(self::SOURCE_IMAGE, $sourceImage);
+        return $this->setData(
+            self::SOURCE_IMAGE,
+            $sourceImage === null ? null : (new MediaRelativePath($sourceImage))->toString()
+        );
     }
 
     /**
      * @inheritDoc
      */
-    public function getCropX(): ?int
+    public function getCropRect(): ?CropRect
     {
-        $value = $this->getData(self::CROP_X);
-        return $value !== null ? (int)$value : null;
+        $x = max(0, $this->readInt(self::CROP_X) ?? 0);
+        $y = max(0, $this->readInt(self::CROP_Y) ?? 0);
+        $width = $this->readInt(self::CROP_WIDTH) ?? 0;
+        $height = $this->readInt(self::CROP_HEIGHT) ?? 0;
+        if ($width < 1 || $height < 1) {
+            return null;
+        }
+
+        return new CropRect($x, $y, $width, $height);
     }
 
     /**
      * @inheritDoc
      */
-    public function setCropX(?int $cropX): ResponsiveCropInterface
+    public function setCropRect(?CropRect $rect): ResponsiveCropInterface
     {
-        return $this->setData(self::CROP_X, $cropX);
-    }
+        $this->setData(self::CROP_X, $rect?->getX() ?? 0);
+        $this->setData(self::CROP_Y, $rect?->getY() ?? 0);
+        $this->setData(self::CROP_WIDTH, $rect?->getWidth() ?? 0);
 
-    /**
-     * @inheritDoc
-     */
-    public function getCropY(): ?int
-    {
-        $value = $this->getData(self::CROP_Y);
-        return $value !== null ? (int)$value : null;
-    }
-
-    /**
-     * @inheritDoc
-     */
-    public function setCropY(?int $cropY): ResponsiveCropInterface
-    {
-        return $this->setData(self::CROP_Y, $cropY);
-    }
-
-    /**
-     * @inheritDoc
-     */
-    public function getCropWidth(): ?int
-    {
-        $value = $this->getData(self::CROP_WIDTH);
-        return $value !== null ? (int)$value : null;
-    }
-
-    /**
-     * @inheritDoc
-     */
-    public function setCropWidth(?int $cropWidth): ResponsiveCropInterface
-    {
-        return $this->setData(self::CROP_WIDTH, $cropWidth);
-    }
-
-    /**
-     * @inheritDoc
-     */
-    public function getCropHeight(): ?int
-    {
-        $value = $this->getData(self::CROP_HEIGHT);
-        return $value !== null ? (int)$value : null;
-    }
-
-    /**
-     * @inheritDoc
-     */
-    public function setCropHeight(?int $cropHeight): ResponsiveCropInterface
-    {
-        return $this->setData(self::CROP_HEIGHT, $cropHeight);
+        return $this->setData(self::CROP_HEIGHT, $rect?->getHeight() ?? 0);
     }
 
     /**
@@ -192,7 +180,7 @@ class ResponsiveCrop extends AbstractExtensibleModel implements ResponsiveCropIn
      */
     public function getCroppedImage(): ?string
     {
-        return $this->getData(self::CROPPED_IMAGE);
+        return $this->readNonBlankString(self::CROPPED_IMAGE);
     }
 
     /**
@@ -200,161 +188,75 @@ class ResponsiveCrop extends AbstractExtensibleModel implements ResponsiveCropIn
      */
     public function setCroppedImage(?string $croppedImage): ResponsiveCropInterface
     {
-        return $this->setData(self::CROPPED_IMAGE, $croppedImage);
+        return $this->setData(
+            self::CROPPED_IMAGE,
+            $croppedImage === null ? null : (new MediaRelativePath($croppedImage))->toString()
+        );
     }
 
     /**
      * @inheritDoc
      */
-    public function getWebpImage(): ?string
+    public function isEnabled(): bool
     {
-        return $this->getData(self::WEBP_IMAGE);
+        return $this->readBool(self::STATUS, true);
     }
 
     /**
      * @inheritDoc
      */
-    public function setWebpImage(?string $webpImage): ResponsiveCropInterface
+    public function setIsEnabled(bool $enabled): ResponsiveCropInterface
     {
-        return $this->setData(self::WEBP_IMAGE, $webpImage);
+        return $this->setData(self::STATUS, (int)$enabled);
     }
 
     /**
      * @inheritDoc
      */
-    public function getAvifImage(): ?string
+    public function getVariants(): array
     {
-        return $this->getData(self::AVIF_IMAGE);
+        $stored = $this->getData(self::VARIANTS);
+        if (!is_array($stored)) {
+            return [];
+        }
+
+        $variants = [];
+        foreach ($stored as $variant) {
+            if ($variant instanceof CropVariantInterface) {
+                $variants[] = $variant;
+            }
+        }
+
+        return $variants;
     }
 
     /**
      * @inheritDoc
      */
-    public function setAvifImage(?string $avifImage): ResponsiveCropInterface
+    public function setVariants(array $variants): ResponsiveCropInterface
     {
-        return $this->setData(self::AVIF_IMAGE, $avifImage);
+        $formats = [];
+        foreach ($variants as $variant) {
+            $format = $variant->getFormat();
+            if (isset($formats[$format])) {
+                throw new \InvalidArgumentException(
+                    sprintf('A crop may have one variant per format; "%s" appears twice.', $format)
+                );
+            }
+            $formats[$format] = true;
+        }
+
+        return $this->setData(self::VARIANTS, $variants);
     }
 
     /**
-     * @inheritDoc
-     */
-    public function isGenerateWebpEnabled(): bool
-    {
-        return (bool)$this->getData(self::GENERATE_WEBP);
-    }
-
-    /**
-     * @inheritDoc
-     */
-    public function setGenerateWebpEnabled(bool $generateWebp): ResponsiveCropInterface
-    {
-        return $this->setData(self::GENERATE_WEBP, $generateWebp);
-    }
-
-    /**
-     * Alias for setGenerateWebpEnabled to support DataObjectHelper mapping
+     * Whether the variants were loaded or set, so saving the crop replaces its variant rows
      *
-     * @param bool $generateWebp
-     * @return ResponsiveCropInterface
+     * @return bool
      */
-    public function setGenerateWebp(bool $generateWebp): ResponsiveCropInterface
+    public function hasVariants(): bool
     {
-        return $this->setGenerateWebpEnabled($generateWebp);
-    }
-
-    /**
-     * @inheritDoc
-     */
-    public function isGenerateAvifEnabled(): bool
-    {
-        return (bool)$this->getData(self::GENERATE_AVIF);
-    }
-
-    /**
-     * @inheritDoc
-     */
-    public function setGenerateAvifEnabled(bool $generateAvif): ResponsiveCropInterface
-    {
-        return $this->setData(self::GENERATE_AVIF, $generateAvif);
-    }
-
-    /**
-     * Alias for setGenerateAvifEnabled to support DataObjectHelper mapping
-     *
-     * @param bool $generateAvif
-     * @return ResponsiveCropInterface
-     */
-    public function setGenerateAvif(bool $generateAvif): ResponsiveCropInterface
-    {
-        return $this->setGenerateAvifEnabled($generateAvif);
-    }
-
-    /**
-     * @inheritDoc
-     */
-    public function getWebpQuality(): ?int
-    {
-        $value = $this->getData(self::WEBP_QUALITY);
-        return $value !== null ? (int)$value : null;
-    }
-
-    /**
-     * @inheritDoc
-     */
-    public function setWebpQuality(?int $webpQuality): ResponsiveCropInterface
-    {
-        return $this->setData(self::WEBP_QUALITY, $webpQuality);
-    }
-
-    /**
-     * @inheritDoc
-     */
-    public function getAvifQuality(): ?int
-    {
-        $value = $this->getData(self::AVIF_QUALITY);
-        return $value !== null ? (int)$value : null;
-    }
-
-    /**
-     * @inheritDoc
-     */
-    public function setAvifQuality(?int $avifQuality): ResponsiveCropInterface
-    {
-        return $this->setData(self::AVIF_QUALITY, $avifQuality);
-    }
-
-    /**
-     * @inheritDoc
-     */
-    public function getSortOrder(): ?int
-    {
-        $sortOrder = $this->getData(self::SORT_ORDER);
-        return $sortOrder !== null ? (int)$sortOrder : null;
-    }
-
-    /**
-     * @inheritDoc
-     */
-    public function setSortOrder(?int $sortOrder): ResponsiveCropInterface
-    {
-        return $this->setData(self::SORT_ORDER, $sortOrder);
-    }
-
-    /**
-     * @inheritDoc
-     */
-    public function getStatus(): ?int
-    {
-        $status = $this->getData(self::STATUS);
-        return $status !== null ? (int)$status : null;
-    }
-
-    /**
-     * @inheritDoc
-     */
-    public function setStatus(?int $status): ResponsiveCropInterface
-    {
-        return $this->setData(self::STATUS, $status);
+        return $this->hasData(self::VARIANTS);
     }
 
     /**
@@ -362,15 +264,7 @@ class ResponsiveCrop extends AbstractExtensibleModel implements ResponsiveCropIn
      */
     public function getCreatedAt(): ?string
     {
-        return $this->getData(self::CREATED_AT);
-    }
-
-    /**
-     * @inheritDoc
-     */
-    public function setCreatedAt(?string $createdAt): ResponsiveCropInterface
-    {
-        return $this->setData(self::CREATED_AT, $createdAt);
+        return $this->readNonBlankString(self::CREATED_AT);
     }
 
     /**
@@ -378,15 +272,7 @@ class ResponsiveCrop extends AbstractExtensibleModel implements ResponsiveCropIn
      */
     public function getUpdatedAt(): ?string
     {
-        return $this->getData(self::UPDATED_AT);
-    }
-
-    /**
-     * @inheritDoc
-     */
-    public function setUpdatedAt(?string $updatedAt): ResponsiveCropInterface
-    {
-        return $this->setData(self::UPDATED_AT, $updatedAt);
+        return $this->readNonBlankString(self::UPDATED_AT);
     }
 
     /**
@@ -394,7 +280,9 @@ class ResponsiveCrop extends AbstractExtensibleModel implements ResponsiveCropIn
      */
     public function getExtensionAttributes(): ?ResponsiveCropExtensionInterface
     {
-        return $this->_getExtensionAttributes();
+        $extensionAttributes = $this->_getExtensionAttributes();
+
+        return $extensionAttributes instanceof ResponsiveCropExtensionInterface ? $extensionAttributes : null;
     }
 
     /**

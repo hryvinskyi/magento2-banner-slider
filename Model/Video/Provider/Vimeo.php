@@ -9,24 +9,38 @@ declare(strict_types=1);
 
 namespace Hryvinskyi\BannerSlider\Model\Video\Provider;
 
-use Hryvinskyi\BannerSlider\Model\Video\VideoData;
-use Hryvinskyi\BannerSliderApi\Api\Video\VideoDataInterface;
+use Hryvinskyi\BannerSliderApi\Api\Value\EmbedKind;
+use Hryvinskyi\BannerSliderApi\Api\Value\EmbedOptions;
+use Hryvinskyi\BannerSliderApi\Api\Value\VideoData;
+use Hryvinskyi\BannerSliderApi\Api\Video\ProviderInterface;
 
 /**
- * Vimeo video provider
+ * Vimeo videos, embedded in an iframe.
+ *
+ * Understood sources (scheme optional, `www.` allowed): `vimeo.com/ID`, `vimeo.com/ID/HASH` (an unlisted video) and
+ * `player.vimeo.com/video/ID`, optionally with `?h=HASH`. The video id is the numeric id; the unlisted hash, when
+ * the source has one, is read back from the source URL and passed as `h`. The embed parameters follow the options:
+ * `background` (Vimeo's own chromeless looping mode), autoplay, muted, loop, and `dnt` for privacy.
  */
-class Vimeo extends AbstractProvider
+class Vimeo implements ProviderInterface
 {
-    private const CODE = 'vimeo';
-    private const EMBED_URL_TEMPLATE = 'https://player.vimeo.com/video/%s';
+    public const CODE = 'vimeo';
+
+    private const ID_PATTERN = '/^\d{1,20}$/';
+    private const SOURCE_PATTERNS = [
+        '~^(?:https?://)?(?:www\.)?vimeo\.com/(\d{1,20})(?:/([0-9a-f]{6,40}))?/?(?:[?#]|$)~i',
+        '~^(?:https?://)?player\.vimeo\.com/video/(\d{1,20})/?(?:\?(?:[^#]*&)?h=([0-9a-f]{6,40})(?:[&#]|$)|[?#]|$)~i',
+    ];
+    private const ALLOW = 'autoplay; fullscreen; picture-in-picture';
+    private const REFERRER_POLICY = 'strict-origin-when-cross-origin';
 
     /**
-     * Vimeo URL patterns
+     * @param int $priority Priority among providers that support the same source
      */
-    private const URL_PATTERNS = [
-        '/^(?:https?:\/\/)?(?:www\.)?vimeo\.com\/(\d+)/',
-        '/^(?:https?:\/\/)?player\.vimeo\.com\/video\/(\d+)/',
-    ];
+    public function __construct(
+        private readonly int $priority = 90
+    ) {
+    }
 
     /**
      * @inheritDoc
@@ -39,61 +53,120 @@ class Vimeo extends AbstractProvider
     /**
      * @inheritDoc
      */
-    public function supports(string $url): bool
+    public function getPriority(): int
     {
-        foreach (self::URL_PATTERNS as $pattern) {
-            if (preg_match($pattern, $url)) {
-                return true;
-            }
-        }
-
-        return false;
+        return $this->priority;
     }
 
     /**
      * @inheritDoc
      */
-    public function parse(string $url): VideoDataInterface
+    public function supports(string $source): bool
     {
-        $videoId = null;
+        return $this->match(trim($source)) !== null;
+    }
 
-        foreach (self::URL_PATTERNS as $pattern) {
-            if (preg_match($pattern, $url, $matches)) {
-                $videoId = $matches[1];
-                break;
+    /**
+     * @inheritDoc
+     */
+    public function parse(string $source): VideoData
+    {
+        $source = trim($source);
+        $match = $this->match($source);
+        if ($match === null) {
+            throw new \InvalidArgumentException(sprintf('"%s" is not a Vimeo video URL.', $source));
+        }
+
+        return new VideoData(self::CODE, $match['id'], $source);
+    }
+
+    /**
+     * @inheritDoc
+     */
+    public function getEmbedKind(): EmbedKind
+    {
+        return EmbedKind::IFRAME;
+    }
+
+    /**
+     * @inheritDoc
+     */
+    public function getEmbedUrl(VideoData $data, EmbedOptions $options): string
+    {
+        $videoId = $this->ownVideoId($data);
+        $parameters = [];
+        $hash = $this->match($data->getSourceUrl())['hash'] ?? null;
+        if ($hash !== null) {
+            $parameters['h'] = $hash;
+        }
+        if ($options->isBackground()) {
+            $parameters['background'] = 1;
+        }
+        if ($options->isAutoplay()) {
+            $parameters['autoplay'] = 1;
+        }
+        if ($options->isMuted()) {
+            $parameters['muted'] = 1;
+        }
+        if ($options->isLoop()) {
+            $parameters['loop'] = 1;
+        }
+        if ($options->isPrivacyEnhanced()) {
+            $parameters['dnt'] = 1;
+        }
+        $query = http_build_query($parameters, '', '&', PHP_QUERY_RFC3986);
+
+        return 'https://player.vimeo.com/video/' . $videoId . ($query === '' ? '' : '?' . $query);
+    }
+
+    /**
+     * @inheritDoc
+     */
+    public function getEmbedAttributes(VideoData $data, EmbedOptions $options): array
+    {
+        $this->ownVideoId($data);
+
+        return [
+            'allow' => self::ALLOW,
+            'allowfullscreen' => !$options->isBackground(),
+            'referrerpolicy' => self::REFERRER_POLICY,
+        ];
+    }
+
+    /**
+     * The video id and unlisted hash in a source, or null when the source is not a Vimeo video URL
+     *
+     * @param string $source
+     * @return array{id: string, hash: string|null}|null
+     */
+    private function match(string $source): ?array
+    {
+        foreach (self::SOURCE_PATTERNS as $pattern) {
+            if (preg_match($pattern, $source, $matches) === 1) {
+                $hash = $matches[2] ?? '';
+
+                return ['id' => $matches[1], 'hash' => $hash === '' ? null : strtolower($hash)];
             }
         }
 
-        if ($videoId === null) {
+        return null;
+    }
+
+    /**
+     * The video id of data this provider parsed
+     *
+     * @param VideoData $data
+     * @return string
+     * @throws \InvalidArgumentException When the data belongs to another provider or holds no valid id
+     */
+    private function ownVideoId(VideoData $data): string
+    {
+        if ($data->getProviderCode() !== self::CODE || preg_match(self::ID_PATTERN, $data->getVideoId()) !== 1) {
             throw new \InvalidArgumentException(
-                sprintf('Could not parse Vimeo video ID from URL: %s', $url)
+                sprintf('The video data of provider "%s" is not a Vimeo video.', $data->getProviderCode())
             );
         }
 
-        return new VideoData(
-            provider: self::CODE,
-            videoId: $videoId,
-            originalUrl: $url,
-            aspectRatio: '16:9',
-            thumbnailUrl: null
-        );
-    }
-
-    /**
-     * @inheritDoc
-     */
-    public function getEmbedUrl(VideoDataInterface $videoData): string
-    {
-        return sprintf(self::EMBED_URL_TEMPLATE, $videoData->getVideoId());
-    }
-
-    /**
-     * @inheritDoc
-     */
-    public function getEmbedAttributes(): array
-    {
-        return array_merge(parent::getEmbedAttributes(), [
-            'allow' => 'autoplay; fullscreen; picture-in-picture',
-        ]);
+        return $data->getVideoId();
     }
 }

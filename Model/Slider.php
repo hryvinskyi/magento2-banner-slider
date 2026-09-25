@@ -9,22 +9,37 @@ declare(strict_types=1);
 
 namespace Hryvinskyi\BannerSlider\Model;
 
+use Hryvinskyi\BannerSlider\Model\Data\RejectedStoredValueLog;
+use Hryvinskyi\BannerSlider\Model\Data\ResponsiveItemsCodec;
 use Hryvinskyi\BannerSliderApi\Api\Data\SliderExtensionInterface;
 use Hryvinskyi\BannerSliderApi\Api\Data\SliderInterface;
+use Hryvinskyi\BannerSliderApi\Api\Value\ActiveWindow;
+use Hryvinskyi\BannerSliderApi\Api\Value\LocationCode;
+use Hryvinskyi\BannerSliderApi\Api\Value\SlideEffect;
+use Hryvinskyi\BannerSliderApi\Api\Value\Visibility;
+use Magento\Framework\Api\AttributeValueFactory;
+use Magento\Framework\Api\ExtensionAttributesFactory;
+use Magento\Framework\Data\Collection\AbstractDb;
 use Magento\Framework\DataObject\IdentityInterface;
-use Magento\Framework\Model\AbstractExtensibleModel;
+use Magento\Framework\Model\Context;
+use Magento\Framework\Model\ResourceModel\AbstractResource;
+use Magento\Framework\Registry;
 
 /**
- * Slider model
+ * Stored slider: typed accessors over the `hryvinskyi_banner_slider` row and its store and customer group links.
+ *
+ * Getters never fail on stored data: an unknown effect reads as slide, an auto play interval below the minimum reads
+ * as the minimum, unreadable responsive items read as none, an inverted window reads as its start, and custom CSS the
+ * setter would reject (it contains "<") reads as none and is logged (see RejectedStoredValueLog). A new slider
+ * is visible nowhere until its visibility is set. The link rows behind the visibility are read and written by the
+ * slider resource model.
  */
-class Slider extends AbstractExtensibleModel implements SliderInterface, IdentityInterface
+class Slider extends AbstractEntityModel implements SliderInterface, IdentityInterface
 {
-    public const CACHE_TAG = 'hryvinskyi_banner_slider';
-
     /**
      * @var string
      */
-    protected $_cacheTag = self::CACHE_TAG;
+    protected $_cacheTag = SliderInterface::CACHE_TAG;
 
     /**
      * @var string
@@ -37,6 +52,44 @@ class Slider extends AbstractExtensibleModel implements SliderInterface, Identit
     protected $_eventObject = 'slider';
 
     /**
+     * The rule custom CSS breaks when it contains "<"
+     */
+    private const CUSTOM_CSS_RULE = 'Slider custom CSS must not contain "<".';
+
+    /**
+     * @param Context $context
+     * @param Registry $registry
+     * @param ExtensionAttributesFactory $extensionFactory
+     * @param AttributeValueFactory $customAttributeFactory
+     * @param ResponsiveItemsCodec $responsiveItemsCodec
+     * @param RejectedStoredValueLog $rejectedValueLog
+     * @param AbstractResource|null $resource
+     * @param AbstractDb|null $resourceCollection
+     * @param array<string,mixed> $data
+     */
+    public function __construct(
+        Context $context,
+        Registry $registry,
+        ExtensionAttributesFactory $extensionFactory,
+        AttributeValueFactory $customAttributeFactory,
+        private readonly ResponsiveItemsCodec $responsiveItemsCodec,
+        private readonly RejectedStoredValueLog $rejectedValueLog,
+        ?AbstractResource $resource = null,
+        ?AbstractDb $resourceCollection = null,
+        array $data = []
+    ) {
+        parent::__construct(
+            $context,
+            $registry,
+            $extensionFactory,
+            $customAttributeFactory,
+            $resource,
+            $resourceCollection,
+            $data
+        );
+    }
+
+    /**
      * @inheritDoc
      */
     protected function _construct(): void
@@ -45,11 +98,31 @@ class Slider extends AbstractExtensibleModel implements SliderInterface, Identit
     }
 
     /**
-     * @inheritDoc
+     * Cache tags of every page showing this slider: the generic tag, its own tag and its location tags
+     *
+     * When the location changes, the tag of the previous location is included too, so pages that showed the slider
+     * there are cleaned as well.
+     *
+     * @return list<string>
      */
     public function getIdentities(): array
     {
-        return [self::CACHE_TAG . '_' . $this->getId()];
+        $tags = [SliderInterface::CACHE_TAG];
+        $sliderId = $this->getSliderId();
+        if ($sliderId !== null) {
+            $tags[] = SliderInterface::CACHE_TAG . '_' . $sliderId;
+        }
+
+        $originalLocation = $this->getOrigData(self::LOCATION);
+        $locations = [$this->getLocation(), is_string($originalLocation) ? $originalLocation : null];
+        foreach ($locations as $location) {
+            $tag = $this->locationTag($location);
+            if ($tag !== null) {
+                $tags[] = $tag;
+            }
+        }
+
+        return array_values(array_unique($tags));
     }
 
     /**
@@ -57,49 +130,51 @@ class Slider extends AbstractExtensibleModel implements SliderInterface, Identit
      */
     public function getSliderId(): ?int
     {
-        $id = $this->getData(self::SLIDER_ID);
-        return $id !== null ? (int)$id : null;
+        return $this->readId(self::SLIDER_ID);
     }
 
     /**
      * @inheritDoc
      */
-    public function setSliderId(?int $sliderId): SliderInterface
+    public function setSliderId(int $sliderId): SliderInterface
     {
+        $this->assertPositiveId('Slider id', $sliderId);
+
         return $this->setData(self::SLIDER_ID, $sliderId);
     }
 
     /**
      * @inheritDoc
      */
-    public function getName(): ?string
+    public function getName(): string
     {
-        return $this->getData(self::NAME);
+        return $this->readString(self::NAME) ?? '';
     }
 
     /**
      * @inheritDoc
      */
-    public function setName(?string $name): SliderInterface
+    public function setName(string $name): SliderInterface
     {
+        $this->assertNotBlank('Slider name', $name);
+
         return $this->setData(self::NAME, $name);
     }
 
     /**
      * @inheritDoc
      */
-    public function getStatus(): ?int
+    public function isEnabled(): bool
     {
-        $status = $this->getData(self::STATUS);
-        return $status !== null ? (int)$status : null;
+        return $this->readBool(self::STATUS, true);
     }
 
     /**
      * @inheritDoc
      */
-    public function setStatus(?int $status): SliderInterface
+    public function setIsEnabled(bool $enabled): SliderInterface
     {
-        return $this->setData(self::STATUS, $status);
+        return $this->setData(self::STATUS, (int)$enabled);
     }
 
     /**
@@ -107,7 +182,7 @@ class Slider extends AbstractExtensibleModel implements SliderInterface, Identit
      */
     public function getLocation(): ?string
     {
-        return $this->getData(self::LOCATION);
+        return $this->readNonBlankString(self::LOCATION);
     }
 
     /**
@@ -115,40 +190,45 @@ class Slider extends AbstractExtensibleModel implements SliderInterface, Identit
      */
     public function setLocation(?string $location): SliderInterface
     {
-        return $this->setData(self::LOCATION, $location);
+        if ($location === null) {
+            return $this->setData(self::LOCATION, null);
+        }
+
+        return $this->setData(self::LOCATION, (new LocationCode($location))->getCode());
     }
 
     /**
      * @inheritDoc
      */
-    public function getPriority(): ?int
+    public function getPriority(): int
     {
-        $priority = $this->getData(self::PRIORITY);
-        return $priority !== null ? (int)$priority : null;
+        return max(0, $this->readInt(self::PRIORITY) ?? 0);
     }
 
     /**
      * @inheritDoc
      */
-    public function setPriority(?int $priority): SliderInterface
+    public function setPriority(int $priority): SliderInterface
     {
+        $this->assertNotNegative('Slider priority', $priority);
+
         return $this->setData(self::PRIORITY, $priority);
     }
 
     /**
      * @inheritDoc
      */
-    public function getEffect(): ?string
+    public function getEffect(): SlideEffect
     {
-        return $this->getData(self::EFFECT);
+        return SlideEffect::tryFrom($this->readString(self::EFFECT) ?? '') ?? SlideEffect::SLIDE;
     }
 
     /**
      * @inheritDoc
      */
-    public function setEffect(?string $effect): SliderInterface
+    public function setEffect(SlideEffect $effect): SliderInterface
     {
-        return $this->setData(self::EFFECT, $effect);
+        return $this->setData(self::EFFECT, $effect->value);
     }
 
     /**
@@ -156,26 +236,15 @@ class Slider extends AbstractExtensibleModel implements SliderInterface, Identit
      */
     public function isAutoWidthEnabled(): bool
     {
-        return (bool)$this->getData(self::AUTO_WIDTH);
+        return $this->readBool(self::AUTO_WIDTH, false);
     }
 
     /**
      * @inheritDoc
      */
-    public function setAutoWidthEnabled(bool $autoWidth): SliderInterface
+    public function setAutoWidthEnabled(bool $enabled): SliderInterface
     {
-        return $this->setData(self::AUTO_WIDTH, $autoWidth);
-    }
-
-    /**
-     * Alias for setAutoWidthEnabled to support DataObjectHelper mapping
-     *
-     * @param bool $autoWidth
-     * @return SliderInterface
-     */
-    public function setAutoWidth(bool $autoWidth): SliderInterface
-    {
-        return $this->setAutoWidthEnabled($autoWidth);
+        return $this->setData(self::AUTO_WIDTH, (int)$enabled);
     }
 
     /**
@@ -183,26 +252,15 @@ class Slider extends AbstractExtensibleModel implements SliderInterface, Identit
      */
     public function isAutoHeightEnabled(): bool
     {
-        return (bool)$this->getData(self::AUTO_HEIGHT);
+        return $this->readBool(self::AUTO_HEIGHT, false);
     }
 
     /**
      * @inheritDoc
      */
-    public function setAutoHeightEnabled(bool $autoHeight): SliderInterface
+    public function setAutoHeightEnabled(bool $enabled): SliderInterface
     {
-        return $this->setData(self::AUTO_HEIGHT, $autoHeight);
-    }
-
-    /**
-     * Alias for setAutoHeightEnabled to support DataObjectHelper mapping
-     *
-     * @param bool $autoHeight
-     * @return SliderInterface
-     */
-    public function setAutoHeight(bool $autoHeight): SliderInterface
-    {
-        return $this->setAutoHeightEnabled($autoHeight);
+        return $this->setData(self::AUTO_HEIGHT, (int)$enabled);
     }
 
     /**
@@ -210,26 +268,15 @@ class Slider extends AbstractExtensibleModel implements SliderInterface, Identit
      */
     public function isLoopEnabled(): bool
     {
-        return (bool)$this->getData(self::LOOP);
+        return $this->readBool(self::LOOP, true);
     }
 
     /**
      * @inheritDoc
      */
-    public function setLoopEnabled(bool $loop): SliderInterface
+    public function setLoopEnabled(bool $enabled): SliderInterface
     {
-        return $this->setData(self::LOOP, $loop);
-    }
-
-    /**
-     * Alias for setLoopEnabled to support DataObjectHelper mapping
-     *
-     * @param bool $loop
-     * @return SliderInterface
-     */
-    public function setLoop(bool $loop): SliderInterface
-    {
-        return $this->setLoopEnabled($loop);
+        return $this->setData(self::LOOP, (int)$enabled);
     }
 
     /**
@@ -237,26 +284,15 @@ class Slider extends AbstractExtensibleModel implements SliderInterface, Identit
      */
     public function isLazyLoadEnabled(): bool
     {
-        return (bool)$this->getData(self::LAZY_LOAD);
+        return $this->readBool(self::LAZY_LOAD, true);
     }
 
     /**
      * @inheritDoc
      */
-    public function setLazyLoadEnabled(bool $lazyLoad): SliderInterface
+    public function setLazyLoadEnabled(bool $enabled): SliderInterface
     {
-        return $this->setData(self::LAZY_LOAD, $lazyLoad);
-    }
-
-    /**
-     * Alias for setLazyLoadEnabled to support DataObjectHelper mapping
-     *
-     * @param bool $lazyLoad
-     * @return SliderInterface
-     */
-    public function setLazyLoad(bool $lazyLoad): SliderInterface
-    {
-        return $this->setLazyLoadEnabled($lazyLoad);
+        return $this->setData(self::LAZY_LOAD, (int)$enabled);
     }
 
     /**
@@ -264,43 +300,41 @@ class Slider extends AbstractExtensibleModel implements SliderInterface, Identit
      */
     public function isAutoPlayEnabled(): bool
     {
-        return (bool)$this->getData(self::AUTO_PLAY);
+        return $this->readBool(self::AUTO_PLAY, true);
     }
 
     /**
      * @inheritDoc
      */
-    public function setAutoPlayEnabled(bool $autoPlay): SliderInterface
+    public function setAutoPlayEnabled(bool $enabled): SliderInterface
     {
-        return $this->setData(self::AUTO_PLAY, $autoPlay);
-    }
-
-    /**
-     * Alias for setAutoplayEnabled to support DataObjectHelper mapping
-     *
-     * @param bool $autoPlay
-     * @return SliderInterface
-     */
-    public function setAutoPlay(bool $autoPlay): SliderInterface
-    {
-        return $this->setAutoplayEnabled($autoPlay);
+        return $this->setData(self::AUTO_PLAY, (int)$enabled);
     }
 
     /**
      * @inheritDoc
      */
-    public function getAutoPlayTimeout(): ?int
+    public function getAutoPlayInterval(): int
     {
-        $timeout = $this->getData(self::AUTO_PLAY_TIMEOUT);
-        return $timeout !== null ? (int)$timeout : null;
+        $interval = $this->readInt(self::AUTO_PLAY_TIMEOUT) ?? self::DEFAULT_AUTO_PLAY_INTERVAL;
+
+        return max(self::MIN_AUTO_PLAY_INTERVAL, $interval);
     }
 
     /**
      * @inheritDoc
      */
-    public function setAutoPlayTimeout(?int $autoPlayTimeout): SliderInterface
+    public function setAutoPlayInterval(int $milliseconds): SliderInterface
     {
-        return $this->setData(self::AUTO_PLAY_TIMEOUT, $autoPlayTimeout);
+        if ($milliseconds < self::MIN_AUTO_PLAY_INTERVAL) {
+            throw new \InvalidArgumentException(sprintf(
+                'Slider auto play interval must be at least %d ms, got %d.',
+                self::MIN_AUTO_PLAY_INTERVAL,
+                $milliseconds
+            ));
+        }
+
+        return $this->setData(self::AUTO_PLAY_TIMEOUT, $milliseconds);
     }
 
     /**
@@ -308,26 +342,15 @@ class Slider extends AbstractExtensibleModel implements SliderInterface, Identit
      */
     public function isNavigationEnabled(): bool
     {
-        return (bool)$this->getData(self::NAV);
+        return $this->readBool(self::NAV, true);
     }
 
     /**
      * @inheritDoc
      */
-    public function setNavigationEnabled(bool $nav): SliderInterface
+    public function setNavigationEnabled(bool $enabled): SliderInterface
     {
-        return $this->setData(self::NAV, $nav);
-    }
-
-    /**
-     * Alias for setNavigationEnabled to support DataObjectHelper mapping
-     *
-     * @param bool $nav
-     * @return SliderInterface
-     */
-    public function setNav(bool $nav): SliderInterface
-    {
-        return $this->setNavigationEnabled($nav);
+        return $this->setData(self::NAV, (int)$enabled);
     }
 
     /**
@@ -335,69 +358,31 @@ class Slider extends AbstractExtensibleModel implements SliderInterface, Identit
      */
     public function isPaginationEnabled(): bool
     {
-        return (bool)$this->getData(self::DOTS);
+        return $this->readBool(self::DOTS, true);
     }
 
     /**
      * @inheritDoc
      */
-    public function setPaginationEnabled(bool $dots): SliderInterface
+    public function setPaginationEnabled(bool $enabled): SliderInterface
     {
-        return $this->setData(self::DOTS, $dots);
-    }
-
-    /**
-     * Alias for setPaginationEnabled to support DataObjectHelper mapping
-     *
-     * @param bool $dots
-     * @return SliderInterface
-     */
-    public function setDots(bool $dots): SliderInterface
-    {
-        return $this->setPaginationEnabled($dots);
+        return $this->setData(self::DOTS, (int)$enabled);
     }
 
     /**
      * @inheritDoc
      */
-    public function isResponsiveEnabled(): bool
+    public function getResponsiveItems(): array
     {
-        return (bool)$this->getData(self::IS_RESPONSIVE);
+        return $this->responsiveItemsCodec->decode($this->readString(self::RESPONSIVE_ITEMS));
     }
 
     /**
      * @inheritDoc
      */
-    public function setResponsiveEnabled(bool $isResponsive): SliderInterface
+    public function setResponsiveItems(array $items): SliderInterface
     {
-        return $this->setData(self::IS_RESPONSIVE, $isResponsive);
-    }
-
-    /**
-     * Alias for setResponsiveEnabled to support DataObjectHelper mapping
-     *
-     * @param bool $isResponsive
-     * @return SliderInterface
-     */
-    public function setIsResponsive(bool $isResponsive): SliderInterface
-    {
-        return $this->setResponsiveEnabled($isResponsive);
-    }
-
-    /**
-     * @inheritDoc
-     */
-    public function getResponsiveItems(): ?string
-    {
-        return $this->getData(self::RESPONSIVE_ITEMS);
-    }
-
-    /**
-     * @inheritDoc
-     */
-    public function setResponsiveItems(?string $responsiveItems): SliderInterface
-    {
-        return $this->setData(self::RESPONSIVE_ITEMS, $responsiveItems);
+        return $this->setData(self::RESPONSIVE_ITEMS, $this->responsiveItemsCodec->encode($items));
     }
 
     /**
@@ -405,7 +390,7 @@ class Slider extends AbstractExtensibleModel implements SliderInterface, Identit
      */
     public function getPreloadBannersCount(): int
     {
-        return (int)$this->getData(self::PRELOAD_BANNERS_COUNT);
+        return max(0, $this->readInt(self::PRELOAD_BANNERS_COUNT) ?? 0);
     }
 
     /**
@@ -413,39 +398,52 @@ class Slider extends AbstractExtensibleModel implements SliderInterface, Identit
      */
     public function setPreloadBannersCount(int $count): SliderInterface
     {
+        $this->assertNotNegative('Slider preload banners count', $count);
+
         return $this->setData(self::PRELOAD_BANNERS_COUNT, $count);
     }
 
     /**
      * @inheritDoc
      */
-    public function getFromDate(): ?string
+    public function getActiveWindow(): ActiveWindow
     {
-        return $this->getData(self::FROM_DATE);
+        return $this->readActiveWindow(self::FROM_DATE, self::TO_DATE);
     }
 
     /**
      * @inheritDoc
      */
-    public function setFromDate(?string $fromDate): SliderInterface
+    public function setActiveWindow(ActiveWindow $window): SliderInterface
     {
-        return $this->setData(self::FROM_DATE, $fromDate);
+        $this->storeActiveWindow($window, self::FROM_DATE, self::TO_DATE);
+
+        return $this;
     }
 
     /**
      * @inheritDoc
      */
-    public function getToDate(): ?string
+    public function getVisibility(): Visibility
     {
-        return $this->getData(self::TO_DATE);
+        $storeIds = $this->readIdList(self::STORE_IDS);
+        $allCustomerGroups = $this->readBool(self::ALL_CUSTOMER_GROUPS, false);
+        if ($allCustomerGroups) {
+            return new Visibility($storeIds, [], true);
+        }
+
+        return new Visibility($storeIds, $this->readIdList(self::CUSTOMER_GROUP_IDS), false);
     }
 
     /**
      * @inheritDoc
      */
-    public function setToDate(?string $toDate): SliderInterface
+    public function setVisibility(Visibility $visibility): SliderInterface
     {
-        return $this->setData(self::TO_DATE, $toDate);
+        $this->setData(self::STORE_IDS, $visibility->getStoreIds());
+        $this->setData(self::CUSTOMER_GROUP_IDS, $visibility->getCustomerGroupIds());
+
+        return $this->setData(self::ALL_CUSTOMER_GROUPS, (int)$visibility->isForAllCustomerGroups());
     }
 
     /**
@@ -453,7 +451,13 @@ class Slider extends AbstractExtensibleModel implements SliderInterface, Identit
      */
     public function getCustomCss(): ?string
     {
-        return $this->getData(self::CUSTOM_CSS);
+        $customCss = $this->readNonBlankString(self::CUSTOM_CSS);
+        if ($customCss === null || $this->isAllowedCustomCss($customCss)) {
+            return $customCss;
+        }
+        $this->rejectedValueLog->report('slider', $this->getSliderId(), self::CUSTOM_CSS, self::CUSTOM_CSS_RULE);
+
+        return null;
     }
 
     /**
@@ -461,7 +465,22 @@ class Slider extends AbstractExtensibleModel implements SliderInterface, Identit
      */
     public function setCustomCss(?string $customCss): SliderInterface
     {
+        if ($customCss !== null && !$this->isAllowedCustomCss($customCss)) {
+            throw new \InvalidArgumentException(self::CUSTOM_CSS_RULE);
+        }
+
         return $this->setData(self::CUSTOM_CSS, $customCss);
+    }
+
+    /**
+     * Whether custom CSS may be stored and rendered: it must not contain "<", so it can never close its style element
+     *
+     * @param string $customCss
+     * @return bool
+     */
+    private function isAllowedCustomCss(string $customCss): bool
+    {
+        return !str_contains($customCss, '<');
     }
 
     /**
@@ -469,15 +488,7 @@ class Slider extends AbstractExtensibleModel implements SliderInterface, Identit
      */
     public function getCreatedAt(): ?string
     {
-        return $this->getData(self::CREATED_AT);
-    }
-
-    /**
-     * @inheritDoc
-     */
-    public function setCreatedAt(?string $createdAt): SliderInterface
-    {
-        return $this->setData(self::CREATED_AT, $createdAt);
+        return $this->readNonBlankString(self::CREATED_AT);
     }
 
     /**
@@ -485,47 +496,7 @@ class Slider extends AbstractExtensibleModel implements SliderInterface, Identit
      */
     public function getUpdatedAt(): ?string
     {
-        return $this->getData(self::UPDATED_AT);
-    }
-
-    /**
-     * @inheritDoc
-     */
-    public function setUpdatedAt(?string $updatedAt): SliderInterface
-    {
-        return $this->setData(self::UPDATED_AT, $updatedAt);
-    }
-
-    /**
-     * @inheritDoc
-     */
-    public function getStoreIds(): string
-    {
-        return (string)$this->getData(self::STORE_IDS);
-    }
-
-    /**
-     * @inheritDoc
-     */
-    public function setStoreIds(string $storeIds): SliderInterface
-    {
-        return $this->setData('store_ids', $storeIds);
-    }
-
-    /**
-     * @inheritDoc
-     */
-    public function getCustomerGroupIds(): string
-    {
-        return (string)$this->getData(self::CUSTOMER_GROUP_IDS);
-    }
-
-    /**
-     * @inheritDoc
-     */
-    public function setCustomerGroupIds(string $customerGroupIds): SliderInterface
-    {
-        return $this->setData('customer_group_ids', $customerGroupIds);
+        return $this->readNonBlankString(self::UPDATED_AT);
     }
 
     /**
@@ -533,7 +504,9 @@ class Slider extends AbstractExtensibleModel implements SliderInterface, Identit
      */
     public function getExtensionAttributes(): ?SliderExtensionInterface
     {
-        return $this->_getExtensionAttributes();
+        $extensionAttributes = $this->_getExtensionAttributes();
+
+        return $extensionAttributes instanceof SliderExtensionInterface ? $extensionAttributes : null;
     }
 
     /**
@@ -542,5 +515,24 @@ class Slider extends AbstractExtensibleModel implements SliderInterface, Identit
     public function setExtensionAttributes(SliderExtensionInterface $extensionAttributes): SliderInterface
     {
         return $this->_setExtensionAttributes($extensionAttributes);
+    }
+
+    /**
+     * Cache tag of a location, or null when there is none or the stored code is not a valid location code
+     *
+     * @param string|null $location
+     * @return string|null
+     */
+    private function locationTag(?string $location): ?string
+    {
+        if ($location === null || $location === '') {
+            return null;
+        }
+
+        try {
+            return (new LocationCode($location))->toCacheTag();
+        } catch (\InvalidArgumentException) {
+            return null;
+        }
     }
 }

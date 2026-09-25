@@ -11,15 +11,31 @@ namespace Hryvinskyi\BannerSlider\Model;
 
 use Hryvinskyi\BannerSliderApi\Api\Data\BreakpointExtensionInterface;
 use Hryvinskyi\BannerSliderApi\Api\Data\BreakpointInterface;
+use Hryvinskyi\BannerSliderApi\Api\Data\SliderInterface;
+use Hryvinskyi\BannerSliderApi\Api\Value\BreakpointInput;
+use Hryvinskyi\BannerSliderApi\Api\Value\BreakpointSpec;
 use Magento\Framework\DataObject\IdentityInterface;
-use Magento\Framework\Model\AbstractExtensibleModel;
 
 /**
- * Breakpoint model
+ * Stored breakpoint: typed accessors over a `hryvinskyi_banner_slider_breakpoint` row.
+ *
+ * A stored target height of 0 or less reads as null (keep the crop's aspect ratio). `toSpec()` never fails on a
+ * stored row: an empty identifier reads as `breakpoint-<id>` and a target width below 1 as 1, so rendering code keeps
+ * working until the breakpoint is corrected; the breakpoint validator rejects such a row on its next save.
  */
-class Breakpoint extends AbstractExtensibleModel implements BreakpointInterface, IdentityInterface
+class Breakpoint extends AbstractEntityModel implements BreakpointInterface, IdentityInterface
 {
+    /**
+     * Cache tag of every breakpoint; `CACHE_TAG . '_' . <breakpoint id>` tags one breakpoint
+     */
     public const CACHE_TAG = 'hryvinskyi_banner_slider_breakpoint';
+
+    /**
+     * Largest target width and height in pixels; a crop bigger than this is never rendered
+     */
+    public const MAX_TARGET_SIZE = 5000;
+
+    private const MEDIA_QUERY_FORBIDDEN = ['<', '{', '}'];
 
     /**
      * @var string
@@ -45,11 +61,23 @@ class Breakpoint extends AbstractExtensibleModel implements BreakpointInterface,
     }
 
     /**
-     * @inheritDoc
+     * Cache tags of every page affected by this breakpoint: its own tag and the tag of its slider
+     *
+     * @return list<string>
      */
     public function getIdentities(): array
     {
-        return [self::CACHE_TAG . '_' . $this->getId()];
+        $tags = [];
+        $breakpointId = $this->getBreakpointId();
+        if ($breakpointId !== null) {
+            $tags[] = self::CACHE_TAG . '_' . $breakpointId;
+        }
+        $sliderId = $this->getSliderId();
+        if ($sliderId !== null) {
+            $tags[] = SliderInterface::CACHE_TAG . '_' . $sliderId;
+        }
+
+        return $tags;
     }
 
     /**
@@ -57,15 +85,16 @@ class Breakpoint extends AbstractExtensibleModel implements BreakpointInterface,
      */
     public function getBreakpointId(): ?int
     {
-        $id = $this->getData(self::BREAKPOINT_ID);
-        return $id !== null ? (int)$id : null;
+        return $this->readId(self::BREAKPOINT_ID);
     }
 
     /**
      * @inheritDoc
      */
-    public function setBreakpointId(?int $breakpointId): BreakpointInterface
+    public function setBreakpointId(int $breakpointId): BreakpointInterface
     {
+        $this->assertPositiveId('Breakpoint id', $breakpointId);
+
         return $this->setData(self::BREAKPOINT_ID, $breakpointId);
     }
 
@@ -74,97 +103,120 @@ class Breakpoint extends AbstractExtensibleModel implements BreakpointInterface,
      */
     public function getSliderId(): ?int
     {
-        $id = $this->getData(self::SLIDER_ID);
-        return $id !== null ? (int)$id : null;
+        return $this->readId(self::SLIDER_ID);
     }
 
     /**
      * @inheritDoc
      */
-    public function setSliderId(?int $sliderId): BreakpointInterface
+    public function setSliderId(int $sliderId): BreakpointInterface
     {
+        $this->assertPositiveId('Breakpoint slider id', $sliderId);
+
         return $this->setData(self::SLIDER_ID, $sliderId);
     }
 
     /**
      * @inheritDoc
      */
-    public function getName(): ?string
+    public function getName(): string
     {
-        return $this->getData(self::NAME);
+        return $this->readString(self::NAME) ?? '';
     }
 
     /**
      * @inheritDoc
      */
-    public function setName(?string $name): BreakpointInterface
+    public function setName(string $name): BreakpointInterface
     {
+        $this->assertNotBlank('Breakpoint name', $name);
+
         return $this->setData(self::NAME, $name);
     }
 
     /**
      * @inheritDoc
      */
-    public function getIdentifier(): ?string
+    public function getIdentifier(): string
     {
-        return $this->getData(self::IDENTIFIER);
+        return $this->readString(self::IDENTIFIER) ?? '';
     }
 
     /**
      * @inheritDoc
      */
-    public function setIdentifier(?string $identifier): BreakpointInterface
+    public function setIdentifier(string $identifier): BreakpointInterface
     {
+        if (preg_match(BreakpointInput::IDENTIFIER_PATTERN, $identifier) !== 1) {
+            throw new \InvalidArgumentException(sprintf(
+                'Breakpoint identifier must be 1-50 lowercase letters, digits, "_" or "-", starting with a letter'
+                . ' or digit, got "%s".',
+                $identifier
+            ));
+        }
+
         return $this->setData(self::IDENTIFIER, $identifier);
     }
 
     /**
      * @inheritDoc
      */
-    public function getMediaQuery(): ?string
+    public function getMediaQuery(): string
     {
-        return $this->getData(self::MEDIA_QUERY);
+        return $this->readString(self::MEDIA_QUERY) ?? '';
     }
 
     /**
      * @inheritDoc
      */
-    public function setMediaQuery(?string $mediaQuery): BreakpointInterface
+    public function setMediaQuery(string $mediaQuery): BreakpointInterface
     {
+        $this->assertNotBlank('Breakpoint media query', $mediaQuery);
+        foreach (self::MEDIA_QUERY_FORBIDDEN as $character) {
+            if (str_contains($mediaQuery, $character)) {
+                throw new \InvalidArgumentException(
+                    sprintf('Breakpoint media query must not contain "%s".', $character)
+                );
+            }
+        }
+
         return $this->setData(self::MEDIA_QUERY, $mediaQuery);
     }
 
     /**
      * @inheritDoc
      */
-    public function getMinWidth(): ?int
+    public function getMinWidth(): int
     {
-        $minWidth = $this->getData(self::MIN_WIDTH);
-        return $minWidth !== null ? (int)$minWidth : null;
+        return max(0, $this->readInt(self::MIN_WIDTH) ?? 0);
     }
 
     /**
      * @inheritDoc
      */
-    public function setMinWidth(?int $minWidth): BreakpointInterface
+    public function setMinWidth(int $minWidth): BreakpointInterface
     {
+        $this->assertNotNegative('Breakpoint min width', $minWidth);
+
         return $this->setData(self::MIN_WIDTH, $minWidth);
     }
 
     /**
      * @inheritDoc
      */
-    public function getTargetWidth(): ?int
+    public function getTargetWidth(): int
     {
-        $targetWidth = $this->getData(self::TARGET_WIDTH);
-        return $targetWidth !== null ? (int)$targetWidth : null;
+        return $this->readInt(self::TARGET_WIDTH) ?? 0;
     }
 
     /**
      * @inheritDoc
      */
-    public function setTargetWidth(?int $targetWidth): BreakpointInterface
+    public function setTargetWidth(int $targetWidth): BreakpointInterface
     {
+        $this->assertPositiveId('Breakpoint target width', $targetWidth);
+        $this->assertTargetSize('Breakpoint target width', $targetWidth);
+
         return $this->setData(self::TARGET_WIDTH, $targetWidth);
     }
 
@@ -173,8 +225,7 @@ class Breakpoint extends AbstractExtensibleModel implements BreakpointInterface,
      */
     public function getTargetHeight(): ?int
     {
-        $targetHeight = $this->getData(self::TARGET_HEIGHT);
-        return $targetHeight !== null ? (int)$targetHeight : null;
+        return $this->readId(self::TARGET_HEIGHT);
     }
 
     /**
@@ -182,22 +233,26 @@ class Breakpoint extends AbstractExtensibleModel implements BreakpointInterface,
      */
     public function setTargetHeight(?int $targetHeight): BreakpointInterface
     {
+        if ($targetHeight !== null) {
+            $this->assertPositiveId('Breakpoint target height', $targetHeight);
+            $this->assertTargetSize('Breakpoint target height', $targetHeight);
+        }
+
         return $this->setData(self::TARGET_HEIGHT, $targetHeight);
     }
 
     /**
      * @inheritDoc
      */
-    public function getSortOrder(): ?int
+    public function getSortOrder(): int
     {
-        $sortOrder = $this->getData(self::SORT_ORDER);
-        return $sortOrder !== null ? (int)$sortOrder : null;
+        return $this->readInt(self::SORT_ORDER) ?? 0;
     }
 
     /**
      * @inheritDoc
      */
-    public function setSortOrder(?int $sortOrder): BreakpointInterface
+    public function setSortOrder(int $sortOrder): BreakpointInterface
     {
         return $this->setData(self::SORT_ORDER, $sortOrder);
     }
@@ -205,18 +260,38 @@ class Breakpoint extends AbstractExtensibleModel implements BreakpointInterface,
     /**
      * @inheritDoc
      */
-    public function getStatus(): ?int
+    public function isEnabled(): bool
     {
-        $status = $this->getData(self::STATUS);
-        return $status !== null ? (int)$status : null;
+        return $this->readBool(self::STATUS, true);
     }
 
     /**
      * @inheritDoc
      */
-    public function setStatus(?int $status): BreakpointInterface
+    public function setIsEnabled(bool $enabled): BreakpointInterface
     {
-        return $this->setData(self::STATUS, $status);
+        return $this->setData(self::STATUS, (int)$enabled);
+    }
+
+    /**
+     * The rendering view of this breakpoint; placeholders stand in for an empty identifier or a missing width
+     *
+     * @return BreakpointSpec
+     */
+    public function toSpec(): BreakpointSpec
+    {
+        $identifier = $this->getIdentifier();
+        if ($identifier === '') {
+            $identifier = 'breakpoint-' . ($this->getBreakpointId() ?? 0);
+        }
+
+        return new BreakpointSpec(
+            $identifier,
+            $this->getMediaQuery(),
+            $this->getMinWidth(),
+            max(1, $this->getTargetWidth()),
+            $this->getTargetHeight()
+        );
     }
 
     /**
@@ -224,15 +299,7 @@ class Breakpoint extends AbstractExtensibleModel implements BreakpointInterface,
      */
     public function getCreatedAt(): ?string
     {
-        return $this->getData(self::CREATED_AT);
-    }
-
-    /**
-     * @inheritDoc
-     */
-    public function setCreatedAt(?string $createdAt): BreakpointInterface
-    {
-        return $this->setData(self::CREATED_AT, $createdAt);
+        return $this->readNonBlankString(self::CREATED_AT);
     }
 
     /**
@@ -240,29 +307,41 @@ class Breakpoint extends AbstractExtensibleModel implements BreakpointInterface,
      */
     public function getUpdatedAt(): ?string
     {
-        return $this->getData(self::UPDATED_AT);
+        return $this->readNonBlankString(self::UPDATED_AT);
     }
 
     /**
      * @inheritDoc
      */
-    public function setUpdatedAt(?string $updatedAt): BreakpointInterface
+    public function getExtensionAttributes(): ?BreakpointExtensionInterface
     {
-        return $this->setData(self::UPDATED_AT, $updatedAt);
+        $extensionAttributes = $this->_getExtensionAttributes();
+
+        return $extensionAttributes instanceof BreakpointExtensionInterface ? $extensionAttributes : null;
     }
 
     /**
      * @inheritDoc
      */
-    public function getAspectRatio(): float
+    public function setExtensionAttributes(BreakpointExtensionInterface $extensionAttributes): BreakpointInterface
     {
-        $width = $this->getTargetWidth();
-        $height = $this->getTargetHeight();
+        return $this->_setExtensionAttributes($extensionAttributes);
+    }
 
-        if ($width === null || $height === null || $height === 0) {
-            return 1.0;
+    /**
+     * Reject a target side larger than the largest crop rendered
+     *
+     * @param string $label
+     * @param int $size
+     * @return void
+     * @throws \InvalidArgumentException
+     */
+    private function assertTargetSize(string $label, int $size): void
+    {
+        if ($size > self::MAX_TARGET_SIZE) {
+            throw new \InvalidArgumentException(
+                sprintf('%s must be at most %d pixels, got %d.', $label, self::MAX_TARGET_SIZE, $size)
+            );
         }
-
-        return (float)$width / (float)$height;
     }
 }

@@ -9,42 +9,80 @@ declare(strict_types=1);
 
 namespace Hryvinskyi\BannerSlider\Setup\Patch\Data;
 
-use Hryvinskyi\BannerSlider\Model\Breakpoint\DefaultBreakpointsCreator;
-use Hryvinskyi\BannerSlider\Model\ResourceModel\Slider\CollectionFactory;
+use Hryvinskyi\BannerSlider\Model\Migration\TypedRowFetcher;
+use Hryvinskyi\BannerSlider\Model\Slider\DefaultBreakpoints;
 use Magento\Framework\Setup\ModuleDataSetupInterface;
 use Magento\Framework\Setup\Patch\DataPatchInterface;
+use Psr\Log\LoggerInterface;
 
 /**
- * Creates default breakpoints for existing sliders
+ * Gives every slider that has no breakpoint the default breakpoints.
+ *
+ * Works on the raw connection, so it does not depend on the models of the version it runs under. A slider that
+ * already has any breakpoint is left alone.
  */
 class CreateDefaultBreakpointsForExistingSliders implements DataPatchInterface
 {
+    private const SLIDER_TABLE = 'hryvinskyi_banner_slider';
+    private const BREAKPOINT_TABLE = 'hryvinskyi_banner_slider_breakpoint';
+
     /**
      * @param ModuleDataSetupInterface $moduleDataSetup
-     * @param CollectionFactory $sliderCollectionFactory
-     * @param DefaultBreakpointsCreator $defaultBreakpointsCreator
+     * @param DefaultBreakpoints $defaultBreakpoints
+     * @param TypedRowFetcher $rowFetcher
+     * @param LoggerInterface $logger
      */
     public function __construct(
         private readonly ModuleDataSetupInterface $moduleDataSetup,
-        private readonly CollectionFactory $sliderCollectionFactory,
-        private readonly DefaultBreakpointsCreator $defaultBreakpointsCreator
+        private readonly DefaultBreakpoints $defaultBreakpoints,
+        private readonly TypedRowFetcher $rowFetcher,
+        private readonly LoggerInterface $logger
     ) {
     }
 
     /**
      * @inheritDoc
      */
-    public function apply(): void
+    public function apply(): self
     {
-        $this->moduleDataSetup->getConnection()->startSetup();
+        $connection = $this->moduleDataSetup->getConnection();
+        $breakpointTable = $this->moduleDataSetup->getTable(self::BREAKPOINT_TABLE);
+        $withBreakpoints = $connection->select()
+            ->from(['breakpoint' => $breakpointTable], ['slider_id'])
+            ->where('breakpoint.slider_id = slider.slider_id');
+        $sliderIds = $this->rowFetcher->fetchIds(
+            $connection,
+            $connection->select()
+                ->from(['slider' => $this->moduleDataSetup->getTable(self::SLIDER_TABLE)], ['slider_id'])
+                ->where('NOT EXISTS (' . $withBreakpoints->assemble() . ')')
+        );
 
-        $collection = $this->sliderCollectionFactory->create();
-
-        foreach ($collection as $slider) {
-            $this->defaultBreakpointsCreator->createForSlider((int)$slider->getSliderId());
+        $rows = [];
+        foreach ($sliderIds as $sliderId) {
+            foreach ($this->defaultBreakpoints->get() as $breakpoint) {
+                $rows[] = [
+                    'slider_id' => $sliderId,
+                    'name' => $breakpoint->getName(),
+                    'identifier' => $breakpoint->getIdentifier(),
+                    'media_query' => $breakpoint->getMediaQuery(),
+                    'min_width' => $breakpoint->getMinWidth(),
+                    'target_width' => $breakpoint->getTargetWidth(),
+                    'target_height' => $breakpoint->getTargetHeight(),
+                    'sort_order' => $breakpoint->getSortOrder(),
+                    'status' => (int)$breakpoint->isEnabled(),
+                ];
+            }
+        }
+        if ($rows !== []) {
+            $connection->insertMultiple($breakpointTable, $rows);
         }
 
-        $this->moduleDataSetup->getConnection()->endSetup();
+        $this->logger->info(sprintf(
+            'Banner slider migration: default breakpoints created for %d sliders.',
+            count($sliderIds)
+        ));
+
+        return $this;
     }
 
     /**

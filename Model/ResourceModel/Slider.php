@@ -9,17 +9,18 @@ declare(strict_types=1);
 
 namespace Hryvinskyi\BannerSlider\Model\ResourceModel;
 
+use Hryvinskyi\BannerSlider\Model\ResourceModel\Slider\VisibilityLinks;
 use Hryvinskyi\BannerSliderApi\Api\Data\SliderInterface;
-use Magento\Framework\DB\Select;
-use Magento\Framework\EntityManager\EntityManager;
-use Magento\Framework\EntityManager\MetadataPool;
-use Magento\Framework\Exception\LocalizedException;
 use Magento\Framework\Model\AbstractModel;
 use Magento\Framework\Model\ResourceModel\Db\AbstractDb;
 use Magento\Framework\Model\ResourceModel\Db\Context;
 
 /**
- * Slider resource model
+ * Persists sliders: the `hryvinskyi_banner_slider` row plus its store view and customer group link rows.
+ *
+ * The link rows are read after load and replaced after save, inside the save transaction. They are replaced only
+ * when the slider carries its store list (loaded or set through its visibility), so saving a slider built without
+ * one never clears the stored links.
  */
 class Slider extends AbstractDb
 {
@@ -27,14 +28,12 @@ class Slider extends AbstractDb
 
     /**
      * @param Context $context
-     * @param EntityManager $entityManager
-     * @param MetadataPool $metadataPool
+     * @param VisibilityLinks $visibilityLinks
      * @param string|null $connectionName
      */
     public function __construct(
         Context $context,
-        private readonly EntityManager $entityManager,
-        private readonly MetadataPool $metadataPool,
+        private readonly VisibilityLinks $visibilityLinks,
         ?string $connectionName = null
     ) {
         parent::__construct($context, $connectionName);
@@ -49,63 +48,33 @@ class Slider extends AbstractDb
     }
 
     /**
-     * @inheritDoc
-     */
-    public function load(AbstractModel $object, $value, $field = null): self
-    {
-        $sliderId = $this->getSliderId($object, (int)$value, $field);
-
-        if ($sliderId) {
-            $this->entityManager->load($object, $sliderId);
-        }
-
-        return $this;
-    }
-
-    /**
-     * Get slider ID by value and field
+     * Attach the store view and customer group id lists
      *
      * @param AbstractModel $object
-     * @param int $value
-     * @param string|null $field
-     * @return int|false
-     * @throws LocalizedException
+     * @return $this
      */
-    private function getSliderId(AbstractModel $object, int $value, ?string $field = null): int|false
+    protected function _afterLoad(AbstractModel $object): self
     {
-        $entityMetadata = $this->metadataPool->getMetadata(SliderInterface::class);
-        $field = $field ?: $entityMetadata->getIdentifierField();
+        $this->visibilityLinks->attach([$object]);
 
-        $entityId = $value;
-        if ($field !== $entityMetadata->getIdentifierField()) {
-            $select = $this->_getLoadSelect($field, $value, $object);
-            $select->reset(Select::COLUMNS)
-                ->columns($this->getMainTable() . '.' . $entityMetadata->getIdentifierField())
-                ->limit(1);
-            $result = $this->getConnection()->fetchCol($select);
-            $entityId = count($result) ? (int)$result[0] : false;
+        return parent::_afterLoad($object);
+    }
+
+    /**
+     * Replace the link rows with the slider's visibility
+     *
+     * @param AbstractModel $object
+     * @return $this
+     */
+    protected function _afterSave(AbstractModel $object): self
+    {
+        if ($object instanceof SliderInterface && $object->hasData(SliderInterface::STORE_IDS)) {
+            $sliderId = $object->getSliderId();
+            if ($sliderId !== null) {
+                $this->visibilityLinks->replace($sliderId, $object->getVisibility());
+            }
         }
 
-        return $entityId;
-    }
-
-    /**
-     * @inheritDoc
-     */
-    public function save(AbstractModel $object): self
-    {
-        $this->entityManager->save($object);
-
-        return $this;
-    }
-
-    /**
-     * @inheritDoc
-     */
-    public function delete(AbstractModel $object): self
-    {
-        $this->entityManager->delete($object);
-
-        return $this;
+        return parent::_afterSave($object);
     }
 }

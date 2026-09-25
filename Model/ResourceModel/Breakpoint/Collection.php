@@ -15,10 +15,12 @@ use Hryvinskyi\BannerSliderApi\Api\Data\BreakpointInterface;
 use Magento\Framework\Model\ResourceModel\Db\Collection\AbstractCollection;
 
 /**
- * Breakpoint collection
+ * Breakpoints of sliders, in rendering order: widest first.
  */
 class Collection extends AbstractCollection
 {
+    private const MAIN_TABLE_ALIAS = 'main_table';
+
     /**
      * @var string
      */
@@ -43,49 +45,84 @@ class Collection extends AbstractCollection
     }
 
     /**
-     * Add slider filter to collection
+     * Keep breakpoints of the slider
      *
      * @param int $sliderId
      * @return $this
      */
     public function addSliderFilter(int $sliderId): self
     {
-        $this->addFieldToFilter(BreakpointInterface::SLIDER_ID, $sliderId);
+        $this->getSelect()->where($this->mainColumn(BreakpointInterface::SLIDER_ID) . ' = ?', $sliderId);
+
         return $this;
     }
 
     /**
-     * Add active filter to collection
+     * Keep breakpoints of any of the sliders; an empty list keeps none
      *
+     * @param list<int> $sliderIds
      * @return $this
      */
-    public function addActiveFilter(): self
+    public function addSliderIdsFilter(array $sliderIds): self
     {
-        $this->addFieldToFilter(BreakpointInterface::STATUS, 1);
+        if ($sliderIds === []) {
+            $this->getSelect()->where('1 = 0');
+
+            return $this;
+        }
+        $this->getSelect()->where($this->mainColumn(BreakpointInterface::SLIDER_ID) . ' IN (?)', $sliderIds);
+
         return $this;
     }
 
     /**
-     * Add sort order ordering
+     * Keep enabled breakpoints
      *
-     * @param string $direction
      * @return $this
      */
-    public function addSortOrderOrdering(string $direction = self::SORT_ORDER_ASC): self
+    public function addEnabledFilter(): self
     {
-        $this->setOrder(BreakpointInterface::SORT_ORDER, $direction);
+        $this->getSelect()->where($this->mainColumn(BreakpointInterface::STATUS) . ' = ?', 1);
+
         return $this;
     }
 
     /**
-     * Add min width ordering (descending for desktop-first)
+     * Keep breakpoints with the identifier
      *
-     * @param string $direction
+     * @param string $identifier
      * @return $this
      */
-    public function addMinWidthOrdering(string $direction = self::SORT_ORDER_DESC): self
+    public function addIdentifierFilter(string $identifier): self
     {
-        $this->setOrder(BreakpointInterface::MIN_WIDTH, $direction);
+        $this->getSelect()->where($this->mainColumn(BreakpointInterface::IDENTIFIER) . ' = ?', $identifier);
+
         return $this;
+    }
+
+    /**
+     * Order for rendering: min width descending, then sort order ascending, then id ascending
+     *
+     * @return $this
+     */
+    public function orderForRendering(): self
+    {
+        $this->getSelect()
+            ->order($this->mainColumn(BreakpointInterface::MIN_WIDTH) . ' ' . self::SORT_ORDER_DESC)
+            ->order($this->mainColumn(BreakpointInterface::SORT_ORDER) . ' ' . self::SORT_ORDER_ASC)
+            ->order($this->mainColumn(BreakpointInterface::BREAKPOINT_ID) . ' ' . self::SORT_ORDER_ASC);
+
+        return $this;
+    }
+
+    /**
+     * Column of the main table, qualified with its alias
+     *
+     * @param string $column
+     * @return string
+     */
+    private function mainColumn(string $column): string
+    {
+        return self::MAIN_TABLE_ALIAS . '.' . $column;
     }
 }

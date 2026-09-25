@@ -1,160 +1,457 @@
 <?xml version="1.0"?>
 <!--
-  ~ Copyright (c) 2025. Volodymyr Hryvinskyi. All rights reserved.
-  ~ @author: <mailto:volodymyr@hryvinskyi.com>
-  -->
+/**
+ * Copyright (c) 2026. Volodymyr Hryvinskyi. All rights reserved.
+ * Author: Volodymyr Hryvinskyi <volodymyr@hryvinskyi.com>
+ * GitHub: https://github.com/hryvinskyi
+ */
+-->
 <config xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
         xsi:noNamespaceSchemaLocation="urn:magento:framework:ObjectManager/etc/config.xsd">
 
-    <!-- Data Interfaces -->
+    <!-- Data interfaces -->
     <preference for="Hryvinskyi\BannerSliderApi\Api\Data\SliderInterface"
                 type="Hryvinskyi\BannerSlider\Model\Slider"/>
     <preference for="Hryvinskyi\BannerSliderApi\Api\Data\BannerInterface"
                 type="Hryvinskyi\BannerSlider\Model\Banner"/>
-    <preference for="Hryvinskyi\BannerSliderApi\Api\Data\ImageInterface"
-                type="Hryvinskyi\BannerSlider\Model\Image"/>
+    <preference for="Hryvinskyi\BannerSliderApi\Api\Data\BreakpointInterface"
+                type="Hryvinskyi\BannerSlider\Model\Breakpoint"/>
+    <preference for="Hryvinskyi\BannerSliderApi\Api\Data\ResponsiveCropInterface"
+                type="Hryvinskyi\BannerSlider\Model\ResponsiveCrop"/>
+    <preference for="Hryvinskyi\BannerSliderApi\Api\Data\CropVariantInterface"
+                type="Hryvinskyi\BannerSlider\Model\CropVariant"/>
 
-    <!-- Search Results -->
+    <!-- Search results -->
     <preference for="Hryvinskyi\BannerSliderApi\Api\Data\SliderSearchResultsInterface"
-                type="Hryvinskyi\BannerSlider\Model\SliderSearchResults"/>
+                type="Hryvinskyi\BannerSlider\Model\SearchResults\SliderSearchResults"/>
     <preference for="Hryvinskyi\BannerSliderApi\Api\Data\BannerSearchResultsInterface"
-                type="Hryvinskyi\BannerSlider\Model\BannerSearchResults"/>
-    <preference for="Hryvinskyi\BannerSliderApi\Api\Data\ImageSearchResultsInterface"
-                type="Hryvinskyi\BannerSlider\Model\ImageSearchResults"/>
+                type="Hryvinskyi\BannerSlider\Model\SearchResults\BannerSearchResults"/>
+    <preference for="Hryvinskyi\BannerSliderApi\Api\Data\BreakpointSearchResultsInterface"
+                type="Hryvinskyi\BannerSlider\Model\SearchResults\BreakpointSearchResults"/>
+    <preference for="Hryvinskyi\BannerSliderApi\Api\Data\ResponsiveCropSearchResultsInterface"
+                type="Hryvinskyi\BannerSlider\Model\SearchResults\ResponsiveCropSearchResults"/>
 
     <!-- Repositories -->
     <preference for="Hryvinskyi\BannerSliderApi\Api\SliderRepositoryInterface"
-                type="Hryvinskyi\BannerSlider\Model\SliderRepository"/>
+                type="Hryvinskyi\BannerSlider\Model\Repository\SliderRepository"/>
     <preference for="Hryvinskyi\BannerSliderApi\Api\BannerRepositoryInterface"
-                type="Hryvinskyi\BannerSlider\Model\BannerRepository"/>
-    <preference for="Hryvinskyi\BannerSliderApi\Api\ImageRepositoryInterface"
-                type="Hryvinskyi\BannerSlider\Model\ImageRepository"/>
+                type="Hryvinskyi\BannerSlider\Model\Repository\BannerRepository"/>
+    <preference for="Hryvinskyi\BannerSliderApi\Api\BreakpointRepositoryInterface"
+                type="Hryvinskyi\BannerSlider\Model\Repository\BreakpointRepository"/>
+    <preference for="Hryvinskyi\BannerSliderApi\Api\ResponsiveCropRepositoryInterface"
+                type="Hryvinskyi\BannerSlider\Model\Repository\ResponsiveCropRepository"/>
 
-    <!-- Video Services -->
+    <!-- Sliders can be searched by store view and customer group, which live in link tables -->
+    <virtualType name="HryvinskyiBannerSliderSliderFilterProcessor"
+                 type="Magento\Framework\Api\SearchCriteria\CollectionProcessor\FilterProcessor">
+        <arguments>
+            <argument name="customFilters" xsi:type="array">
+                <item name="store_id" xsi:type="object">Hryvinskyi\BannerSlider\Model\Api\SearchCriteria\CollectionProcessor\FilterProcessor\SliderStoreFilter</item>
+                <item name="customer_group_id" xsi:type="object">Hryvinskyi\BannerSlider\Model\Api\SearchCriteria\CollectionProcessor\FilterProcessor\SliderCustomerGroupFilter</item>
+            </argument>
+        </arguments>
+    </virtualType>
+    <virtualType name="HryvinskyiBannerSliderSliderCollectionProcessor"
+                 type="Magento\Framework\Api\SearchCriteria\CollectionProcessor">
+        <arguments>
+            <argument name="processors" xsi:type="array">
+                <item name="filters" xsi:type="object">HryvinskyiBannerSliderSliderFilterProcessor</item>
+                <item name="sorting" xsi:type="object">Magento\Framework\Api\SearchCriteria\CollectionProcessor\SortingProcessor</item>
+                <item name="pagination" xsi:type="object">Magento\Framework\Api\SearchCriteria\CollectionProcessor\PaginationProcessor</item>
+            </argument>
+        </arguments>
+    </virtualType>
+    <type name="Hryvinskyi\BannerSlider\Model\Repository\SliderRepository">
+        <arguments>
+            <argument name="collectionProcessor" xsi:type="object">HryvinskyiBannerSliderSliderCollectionProcessor</argument>
+        </arguments>
+    </type>
+
+    <!-- Validators: one pool of rules per entity -->
+    <preference for="Hryvinskyi\BannerSliderApi\Api\Validation\SliderValidatorInterface"
+                type="Hryvinskyi\BannerSlider\Model\Validation\SliderValidator"/>
+    <preference for="Hryvinskyi\BannerSliderApi\Api\Validation\BannerValidatorInterface"
+                type="Hryvinskyi\BannerSlider\Model\Validation\BannerValidator"/>
+    <preference for="Hryvinskyi\BannerSliderApi\Api\Validation\BreakpointValidatorInterface"
+                type="Hryvinskyi\BannerSlider\Model\Validation\BreakpointValidator"/>
+    <preference for="Hryvinskyi\BannerSliderApi\Api\Validation\ResponsiveCropValidatorInterface"
+                type="Hryvinskyi\BannerSlider\Model\Validation\ResponsiveCropValidator"/>
+    <type name="Hryvinskyi\BannerSlider\Model\Validation\SliderValidator">
+        <arguments>
+            <argument name="rules" xsi:type="array">
+                <item name="name_required" xsi:type="object">Hryvinskyi\BannerSlider\Model\Validation\Rule\Slider\NameRequired</item>
+                <item name="has_store_scope" xsi:type="object">Hryvinskyi\BannerSlider\Model\Validation\Rule\Slider\HasStoreScope</item>
+            </argument>
+        </arguments>
+    </type>
+    <type name="Hryvinskyi\BannerSlider\Model\Validation\BannerValidator">
+        <arguments>
+            <argument name="rules" xsi:type="array">
+                <item name="slider_assigned" xsi:type="object">Hryvinskyi\BannerSlider\Model\Validation\Rule\Banner\SliderAssigned</item>
+                <item name="image_required" xsi:type="object">Hryvinskyi\BannerSlider\Model\Validation\Rule\Banner\ImageRequired</item>
+                <item name="video_source_required" xsi:type="object">Hryvinskyi\BannerSlider\Model\Validation\Rule\Banner\VideoSourceRequired</item>
+                <item name="content_required" xsi:type="object">Hryvinskyi\BannerSlider\Model\Validation\Rule\Banner\ContentRequired</item>
+            </argument>
+        </arguments>
+    </type>
+    <type name="Hryvinskyi\BannerSlider\Model\Validation\BreakpointValidator">
+        <arguments>
+            <argument name="rules" xsi:type="array">
+                <item name="required_fields" xsi:type="object">Hryvinskyi\BannerSlider\Model\Validation\Rule\Breakpoint\RequiredFields</item>
+                <item name="identifier_unique_in_slider" xsi:type="object">Hryvinskyi\BannerSlider\Model\Validation\Rule\Breakpoint\IdentifierUniqueInSlider</item>
+                <item name="target_size_within_limit" xsi:type="object">Hryvinskyi\BannerSlider\Model\Validation\Rule\Breakpoint\TargetSizeWithinLimit</item>
+            </argument>
+        </arguments>
+    </type>
+    <type name="Hryvinskyi\BannerSlider\Model\Validation\ResponsiveCropValidator">
+        <arguments>
+            <argument name="rules" xsi:type="array">
+                <item name="references_assigned" xsi:type="object">Hryvinskyi\BannerSlider\Model\Validation\Rule\ResponsiveCrop\ReferencesAssigned</item>
+                <item name="rect_required_when_enabled" xsi:type="object">Hryvinskyi\BannerSlider\Model\Validation\Rule\ResponsiveCrop\RectRequiredWhenEnabled</item>
+                <item name="breakpoint_belongs_to_banner_slider" xsi:type="object">Hryvinskyi\BannerSlider\Model\Validation\Rule\ResponsiveCrop\BreakpointBelongsToBannerSlider</item>
+                <item name="variant_formats_registered" xsi:type="object">Hryvinskyi\BannerSlider\Model\Validation\Rule\ResponsiveCrop\VariantFormatsRegistered</item>
+            </argument>
+        </arguments>
+    </type>
+
+    <!-- Admin listing collections; injectable wherever a framework database collection is expected -->
+    <type name="Hryvinskyi\BannerSlider\Model\ResourceModel\Slider\Grid\Collection">
+        <arguments>
+            <argument name="mainTable" xsi:type="string">hryvinskyi_banner_slider</argument>
+            <argument name="resourceModel" xsi:type="string">Hryvinskyi\BannerSlider\Model\ResourceModel\Slider</argument>
+        </arguments>
+    </type>
+    <type name="Hryvinskyi\BannerSlider\Model\ResourceModel\Banner\Grid\Collection">
+        <arguments>
+            <argument name="mainTable" xsi:type="string">hryvinskyi_banner_slider_banner</argument>
+            <argument name="resourceModel" xsi:type="string">Hryvinskyi\BannerSlider\Model\ResourceModel\Banner</argument>
+        </arguments>
+    </type>
+
+    <!-- Uploads: the accepted types, their caps from configuration, stored under the package media roots -->
+    <preference for="Hryvinskyi\BannerSliderApi\Api\Media\ImageUploadInterface"
+                type="Hryvinskyi\BannerSlider\Model\Media\ImageUpload"/>
+    <preference for="Hryvinskyi\BannerSliderApi\Api\Media\VideoUploadInterface"
+                type="Hryvinskyi\BannerSlider\Model\Media\VideoUpload"/>
+    <preference for="Hryvinskyi\BannerSliderApi\Api\Media\MediaUrlResolverInterface"
+                type="Hryvinskyi\BannerSlider\Model\Media\MediaUrlResolver"/>
+    <type name="Hryvinskyi\BannerSlider\Model\Media\ImageUpload">
+        <arguments>
+            <argument name="allowedFormats" xsi:type="array">
+                <item name="jpeg" xsi:type="string">jpeg</item>
+                <item name="png" xsi:type="string">png</item>
+                <item name="gif" xsi:type="string">gif</item>
+                <item name="webp" xsi:type="string">webp</item>
+                <item name="avif" xsi:type="string">avif</item>
+            </argument>
+        </arguments>
+    </type>
+    <!-- One entry per video MIME type a local video provider below can play, with the extension the stored file gets -->
+    <type name="Hryvinskyi\BannerSlider\Model\Media\VideoUpload">
+        <arguments>
+            <argument name="allowedTypes" xsi:type="array">
+                <item name="mp4" xsi:type="array">
+                    <item name="mime" xsi:type="string">video/mp4</item>
+                    <item name="extension" xsi:type="string">mp4</item>
+                </item>
+                <item name="m4v" xsi:type="array">
+                    <item name="mime" xsi:type="string">video/x-m4v</item>
+                    <item name="extension" xsi:type="string">mp4</item>
+                </item>
+                <item name="webm" xsi:type="array">
+                    <item name="mime" xsi:type="string">video/webm</item>
+                    <item name="extension" xsi:type="string">webm</item>
+                </item>
+            </argument>
+        </arguments>
+    </type>
+    <type name="Hryvinskyi\BannerSlider\Model\Media\UploadedFileStore">
+        <arguments>
+            <argument name="clock" xsi:type="object">Hryvinskyi\BannerSlider\Model\Clock\SystemClock</argument>
+        </arguments>
+    </type>
+
+    <!-- Admin settings -->
+    <preference for="Hryvinskyi\BannerSliderApi\Api\Config\ImageConfigInterface"
+                type="Hryvinskyi\BannerSlider\Model\Config\ImageConfig"/>
+    <preference for="Hryvinskyi\BannerSliderApi\Api\Config\VideoConfigInterface"
+                type="Hryvinskyi\BannerSlider\Model\Config\VideoConfig"/>
+    <!-- The formats with a quality setting (the variant formats, and JPEG crop output), and the quality used when the stored value is broken -->
+    <type name="Hryvinskyi\BannerSlider\Model\Config\ImageConfig">
+        <arguments>
+            <argument name="fallbackQualities" xsi:type="array">
+                <item name="webp" xsi:type="number">85</item>
+                <item name="avif" xsi:type="number">80</item>
+                <item name="jpeg" xsi:type="number">90</item>
+            </argument>
+        </arguments>
+    </type>
+
+    <!-- Video providers: the resolver asks the highest priority first -->
     <preference for="Hryvinskyi\BannerSliderApi\Api\Video\ProviderResolverInterface"
                 type="Hryvinskyi\BannerSlider\Model\Video\ProviderResolver"/>
-    <preference for="Hryvinskyi\BannerSliderApi\Api\Video\UploadInterface"
-                type="Hryvinskyi\BannerSlider\Model\Video\Upload"/>
-    <preference for="Hryvinskyi\BannerSliderApi\Api\Video\VideoPathConfigInterface"
-                type="Hryvinskyi\BannerSlider\Model\Video\VideoPathConfig"/>
-
-    <preference for="Hryvinskyi\BannerSliderApi\Api\UploadImageInterface"
-                type="Hryvinskyi\BannerSlider\Model\UploadImage"/>
-
-    <!-- Video Provider Resolver Configuration -->
+    <virtualType name="HryvinskyiBannerSliderLocalMp4VideoProvider"
+                 type="Hryvinskyi\BannerSlider\Model\Video\Provider\LocalFile">
+        <arguments>
+            <argument name="code" xsi:type="string">local_mp4</argument>
+            <argument name="extension" xsi:type="string">mp4</argument>
+        </arguments>
+    </virtualType>
+    <virtualType name="HryvinskyiBannerSliderLocalWebmVideoProvider"
+                 type="Hryvinskyi\BannerSlider\Model\Video\Provider\LocalFile">
+        <arguments>
+            <argument name="code" xsi:type="string">local_webm</argument>
+            <argument name="extension" xsi:type="string">webm</argument>
+        </arguments>
+    </virtualType>
     <type name="Hryvinskyi\BannerSlider\Model\Video\ProviderResolver">
         <arguments>
             <argument name="providers" xsi:type="array">
                 <item name="youtube" xsi:type="object">Hryvinskyi\BannerSlider\Model\Video\Provider\YouTube</item>
                 <item name="vimeo" xsi:type="object">Hryvinskyi\BannerSlider\Model\Video\Provider\Vimeo</item>
-                <item name="local_mp4" xsi:type="object">Hryvinskyi\BannerSlider\Model\Video\Provider\LocalMp4</item>
-                <item name="local_webm" xsi:type="object">Hryvinskyi\BannerSlider\Model\Video\Provider\LocalWebm</item>
+                <item name="local_mp4" xsi:type="object">HryvinskyiBannerSliderLocalMp4VideoProvider</item>
+                <item name="local_webm" xsi:type="object">HryvinskyiBannerSliderLocalWebmVideoProvider</item>
             </argument>
         </arguments>
     </type>
 
-    <!-- Entity Manager Configuration for Slider -->
-    <type name="Magento\Framework\EntityManager\MetadataPool">
+    <!-- Storefront reads: the slider a visitor sees, its slides and their responsive pictures -->
+    <preference for="Hryvinskyi\BannerSliderApi\Api\Slider\SliderLocatorInterface"
+                type="Hryvinskyi\BannerSlider\Model\Slider\SliderLocator"/>
+    <preference for="Hryvinskyi\BannerSliderApi\Api\Banner\VisibleBannersProviderInterface"
+                type="Hryvinskyi\BannerSlider\Model\Banner\VisibleBannersProvider"/>
+    <preference for="Hryvinskyi\BannerSliderApi\Api\Picture\PictureSourcesProviderInterface"
+                type="Hryvinskyi\BannerSlider\Model\Picture\PictureSourcesProvider"/>
+
+    <!-- Slider editing: one transaction for the slider and its breakpoints -->
+    <preference for="Hryvinskyi\BannerSliderApi\Api\Slider\SliderEditorInterface"
+                type="Hryvinskyi\BannerSlider\Model\Slider\SliderEditor"/>
+    <!-- The breakpoints a new slider saved without any starts with -->
+    <type name="Hryvinskyi\BannerSlider\Model\Slider\DefaultBreakpoints">
         <arguments>
-            <argument name="metadata" xsi:type="array">
-                <item name="Hryvinskyi\BannerSliderApi\Api\Data\SliderInterface" xsi:type="array">
-                    <item name="entityTableName" xsi:type="string">hryvinskyi_banner_slider</item>
-                    <item name="identifierField" xsi:type="string">slider_id</item>
+            <argument name="breakpoints" xsi:type="array">
+                <item name="desktop" xsi:type="array">
+                    <item name="name" xsi:type="string">Desktop</item>
+                    <item name="identifier" xsi:type="string">desktop</item>
+                    <item name="media_query" xsi:type="string">(min-width: 1200px)</item>
+                    <item name="min_width" xsi:type="number">1200</item>
+                    <item name="target_width" xsi:type="number">1920</item>
+                    <item name="target_height" xsi:type="number">600</item>
+                    <item name="sort_order" xsi:type="number">10</item>
                 </item>
-                <item name="Hryvinskyi\BannerSliderApi\Api\Data\BannerInterface" xsi:type="array">
-                    <item name="entityTableName" xsi:type="string">hryvinskyi_banner_slider_banner</item>
-                    <item name="identifierField" xsi:type="string">banner_id</item>
+                <item name="tablet" xsi:type="array">
+                    <item name="name" xsi:type="string">Tablet</item>
+                    <item name="identifier" xsi:type="string">tablet</item>
+                    <item name="media_query" xsi:type="string">(min-width: 768px) and (max-width: 1199px)</item>
+                    <item name="min_width" xsi:type="number">768</item>
+                    <item name="target_width" xsi:type="number">992</item>
+                    <item name="target_height" xsi:type="number">400</item>
+                    <item name="sort_order" xsi:type="number">30</item>
+                </item>
+                <item name="mobile" xsi:type="array">
+                    <item name="name" xsi:type="string">Mobile</item>
+                    <item name="identifier" xsi:type="string">mobile</item>
+                    <item name="media_query" xsi:type="string">(max-width: 767px)</item>
+                    <item name="min_width" xsi:type="number">0</item>
+                    <item name="target_width" xsi:type="number">767</item>
+                    <item name="target_height" xsi:type="number">500</item>
+                    <item name="sort_order" xsi:type="number">40</item>
                 </item>
             </argument>
         </arguments>
     </type>
 
-    <type name="Magento\Framework\EntityManager\HydratorPool">
+    <!-- Banner editing: one transaction for the banner and its crops; crop files written first, replaced ones removed last -->
+    <preference for="Hryvinskyi\BannerSliderApi\Api\Banner\BannerEditorInterface"
+                type="Hryvinskyi\BannerSlider\Model\Banner\BannerEditor"/>
+    <preference for="Hryvinskyi\BannerSliderApi\Api\ResponsiveCrop\CropRegeneratorInterface"
+                type="Hryvinskyi\BannerSlider\Model\ResponsiveCrop\CropRegenerator"/>
+    <!-- The package media roots a crop may be cut from, besides the crop's current source and the banner image -->
+    <type name="Hryvinskyi\BannerSlider\Model\ResponsiveCrop\CropChangeValidator">
         <arguments>
-            <argument name="hydrators" xsi:type="array">
-                <item name="Hryvinskyi\BannerSliderApi\Api\Data\SliderInterface"
-                      xsi:type="string">Magento\Framework\EntityManager\AbstractModelHydrator</item>
-                <item name="Hryvinskyi\BannerSliderApi\Api\Data\BannerInterface"
-                      xsi:type="string">Magento\Framework\EntityManager\AbstractModelHydrator</item>
+            <argument name="sourceRoots" xsi:type="array">
+                <item name="image" xsi:type="string">image</item>
+                <item name="breakpoint" xsi:type="string">breakpoint</item>
             </argument>
         </arguments>
     </type>
-
-    <type name="Magento\Framework\EntityManager\Operation\ExtensionPool">
+    <!-- The original-format output of a crop: JPEG for a JPEG source, PNG for any other source -->
+    <type name="Hryvinskyi\BannerSlider\Model\ResponsiveCrop\OriginalFormatRule">
         <arguments>
-            <argument name="extensionActions" xsi:type="array">
-                <item name="Hryvinskyi\BannerSliderApi\Api\Data\SliderInterface" xsi:type="array">
-                    <item name="read" xsi:type="array">
-                        <item name="storeReader" xsi:type="string">Hryvinskyi\BannerSlider\Model\Slider\Relation\ReadHandler</item>
+            <argument name="photoFormatCode" xsi:type="string">jpeg</argument>
+            <argument name="fallbackFormatCode" xsi:type="string">png</argument>
+        </arguments>
+    </type>
+    <!-- Server-encoded variants start from a lossless render -->
+    <type name="Hryvinskyi\BannerSlider\Model\ResponsiveCrop\ServerCropEncoder">
+        <arguments>
+            <argument name="intermediateFormatCode" xsi:type="string">png</argument>
+        </arguments>
+    </type>
+
+    <!-- Media housekeeping: unreferenced files older than the grace period (seconds) may be swept -->
+    <type name="Hryvinskyi\BannerSlider\Model\Media\OrphanMediaSweeper">
+        <arguments>
+            <argument name="clock" xsi:type="object">Hryvinskyi\BannerSlider\Model\Clock\SystemClock</argument>
+            <argument name="gracePeriodSeconds" xsi:type="number">86400</argument>
+        </arguments>
+    </type>
+
+    <!-- Console commands: every service behind a proxy, so building the command list stays cheap -->
+    <type name="Magento\Framework\Console\CommandListInterface">
+        <arguments>
+            <argument name="commands" xsi:type="array">
+                <item name="hryvinskyi_banner_slider_regenerate_crops" xsi:type="object">Hryvinskyi\BannerSlider\Console\Command\RegenerateCrops</item>
+                <item name="hryvinskyi_banner_slider_cleanup_media" xsi:type="object">Hryvinskyi\BannerSlider\Console\Command\CleanupMedia</item>
+            </argument>
+        </arguments>
+    </type>
+    <type name="Hryvinskyi\BannerSlider\Console\Command\RegenerateCrops">
+        <arguments>
+            <argument name="regenerator" xsi:type="object">Hryvinskyi\BannerSliderApi\Api\ResponsiveCrop\CropRegeneratorInterface\Proxy</argument>
+            <argument name="bannerRepository" xsi:type="object">Hryvinskyi\BannerSliderApi\Api\BannerRepositoryInterface\Proxy</argument>
+            <argument name="searchCriteriaBuilder" xsi:type="object">Magento\Framework\Api\SearchCriteriaBuilder\Proxy</argument>
+        </arguments>
+    </type>
+    <type name="Hryvinskyi\BannerSlider\Console\Command\CleanupMedia">
+        <arguments>
+            <argument name="sweeper" xsi:type="object">Hryvinskyi\BannerSlider\Model\Media\OrphanMediaSweeper\Proxy</argument>
+        </arguments>
+    </type>
+
+    <!-- Cache: pages of sliders and banners whose active window opened or closed are cleaned on schedule -->
+    <type name="Hryvinskyi\BannerSlider\Model\Cache\ScheduleBoundaryRefresher">
+        <arguments>
+            <argument name="clock" xsi:type="object">Hryvinskyi\BannerSlider\Model\Clock\SystemClock</argument>
+        </arguments>
+    </type>
+
+    <!-- Media files: the package roots (the only folders core writes or deletes in) and the local temp folder -->
+    <type name="Hryvinskyi\BannerSlider\Model\Media\MediaPaths">
+        <arguments>
+            <argument name="roots" xsi:type="array">
+                <item name="image" xsi:type="string">banner_slider/image</item>
+                <item name="responsive" xsi:type="string">banner_slider/responsive</item>
+                <item name="video" xsi:type="string">banner_slider/video</item>
+                <item name="breakpoint" xsi:type="string">banner_slider/breakpoint</item>
+                <item name="tmp" xsi:type="string">banner_slider/tmp</item>
+            </argument>
+        </arguments>
+    </type>
+    <type name="Hryvinskyi\BannerSlider\Model\Media\LocalFileWorkspace">
+        <arguments>
+            <argument name="tempFolder" xsi:type="string">tmp/hryvinskyi_banner_slider</argument>
+        </arguments>
+    </type>
+
+    <!-- Image formats: add a format with one item here and at least one encoder below -->
+    <preference for="Hryvinskyi\BannerSliderApi\Api\Image\ImageFormatRegistryInterface"
+                type="Hryvinskyi\BannerSlider\Model\Image\ImageFormatRegistry"/>
+    <type name="Hryvinskyi\BannerSlider\Model\Image\ImageFormatRegistry">
+        <arguments>
+            <argument name="formats" xsi:type="array">
+                <item name="jpeg" xsi:type="array">
+                    <item name="mime" xsi:type="string">image/jpeg</item>
+                    <item name="extension" xsi:type="string">jpg</item>
+                    <item name="aliases" xsi:type="array">
+                        <item name="jpeg" xsi:type="string">jpeg</item>
+                        <item name="jpe" xsi:type="string">jpe</item>
                     </item>
-                    <item name="create" xsi:type="array">
-                        <item name="storeSaver" xsi:type="string">Hryvinskyi\BannerSlider\Model\Slider\Relation\SaveHandler</item>
-                    </item>
-                    <item name="update" xsi:type="array">
-                        <item name="storeSaver" xsi:type="string">Hryvinskyi\BannerSlider\Model\Slider\Relation\SaveHandler</item>
-                    </item>
+                    <item name="variant" xsi:type="boolean">false</item>
+                </item>
+                <item name="png" xsi:type="array">
+                    <item name="mime" xsi:type="string">image/png</item>
+                    <item name="extension" xsi:type="string">png</item>
+                    <item name="variant" xsi:type="boolean">false</item>
+                </item>
+                <item name="gif" xsi:type="array">
+                    <item name="mime" xsi:type="string">image/gif</item>
+                    <item name="extension" xsi:type="string">gif</item>
+                    <item name="variant" xsi:type="boolean">false</item>
+                </item>
+                <item name="webp" xsi:type="array">
+                    <item name="mime" xsi:type="string">image/webp</item>
+                    <item name="extension" xsi:type="string">webp</item>
+                    <item name="variant" xsi:type="boolean">true</item>
+                    <item name="preference" xsi:type="number">10</item>
+                </item>
+                <item name="avif" xsi:type="array">
+                    <item name="mime" xsi:type="string">image/avif</item>
+                    <item name="extension" xsi:type="string">avif</item>
+                    <item name="variant" xsi:type="boolean">true</item>
+                    <item name="preference" xsi:type="number">20</item>
                 </item>
             </argument>
         </arguments>
     </type>
 
-    <!-- Search Criteria Filter Interfaces -->
-    <preference for="Hryvinskyi\BannerSliderApi\Api\Slider\SearchCriteria\AddActiveFilterInterface"
-                type="Hryvinskyi\BannerSlider\Model\Slider\SearchCriteria\AddActiveFilter"/>
-    <preference for="Hryvinskyi\BannerSliderApi\Api\Slider\SearchCriteria\AddStoreFilterInterface"
-                type="Hryvinskyi\BannerSlider\Model\Slider\SearchCriteria\AddStoreFilter"/>
-    <preference for="Hryvinskyi\BannerSliderApi\Api\Slider\SearchCriteria\AddCustomerGroupFilterInterface"
-                type="Hryvinskyi\BannerSlider\Model\Slider\SearchCriteria\AddCustomerGroupFilter"/>
-    <preference for="Hryvinskyi\BannerSliderApi\Api\Slider\SearchCriteria\AddDateFromDateToFilterInterface"
-                type="Hryvinskyi\BannerSlider\Model\Slider\SearchCriteria\AddDateFromDateToFilter"/>
-    <preference for="Hryvinskyi\BannerSliderApi\Api\Slider\SearchCriteria\AddPrioritySortOrderInterface"
-                type="Hryvinskyi\BannerSlider\Model\Slider\SearchCriteria\AddPrioritySortOrder"/>
-    <preference for="Hryvinskyi\BannerSliderApi\Api\Slider\SearchCriteria\AddSliderIdFilterInterface"
-                type="Hryvinskyi\BannerSlider\Model\Slider\SearchCriteria\AddSliderIdFilter"/>
+    <!-- Encoders per format, tried in this order; the first available one that succeeds wins -->
+    <type name="Hryvinskyi\BannerSlider\Model\Image\ImageConverter">
+        <arguments>
+            <argument name="encoders" xsi:type="array">
+                <item name="webp" xsi:type="array">
+                    <item name="gd" xsi:type="object">Hryvinskyi\BannerSlider\Model\Image\Encoder\GdWebpEncoder</item>
+                    <item name="cwebp" xsi:type="object">Hryvinskyi\BannerSlider\Model\Image\Encoder\CwebpEncoder</item>
+                </item>
+                <item name="avif" xsi:type="array">
+                    <item name="imagick" xsi:type="object">Hryvinskyi\BannerSlider\Model\Image\Encoder\ImagickAvifEncoder</item>
+                    <item name="gd" xsi:type="object">Hryvinskyi\BannerSlider\Model\Image\Encoder\GdAvifEncoder</item>
+                    <item name="cavif" xsi:type="object">Hryvinskyi\BannerSlider\Model\Image\Encoder\CavifEncoder</item>
+                </item>
+                <item name="png" xsi:type="array">
+                    <item name="gd" xsi:type="object">Hryvinskyi\BannerSlider\Model\Image\Encoder\GdPngEncoder</item>
+                </item>
+            </argument>
+        </arguments>
+    </type>
+    <type name="Hryvinskyi\BannerSlider\Model\Image\Encoder\CwebpEncoder">
+        <arguments>
+            <argument name="timeout" xsi:type="number">120</argument>
+        </arguments>
+    </type>
+    <type name="Hryvinskyi\BannerSlider\Model\Image\Encoder\CavifEncoder">
+        <arguments>
+            <argument name="timeout" xsi:type="number">180</argument>
+        </arguments>
+    </type>
+    <!-- The formats GD may decode, each with the gd_info() feature that tells this build reads it -->
+    <type name="Hryvinskyi\BannerSlider\Model\Image\GdImageDecoder">
+        <arguments>
+            <argument name="readableFormats" xsi:type="array">
+                <item name="jpeg" xsi:type="string">JPEG Support</item>
+                <item name="png" xsi:type="string">PNG Support</item>
+                <item name="gif" xsi:type="string">GIF Read Support</item>
+                <item name="webp" xsi:type="string">WebP Support</item>
+                <item name="avif" xsi:type="string">AVIF Support</item>
+            </argument>
+        </arguments>
+    </type>
+    <!-- Crops are rendered in these formats; those listed under qualityFormats are saved at the configured quality -->
+    <type name="Hryvinskyi\BannerSlider\Model\Image\CropRenderer">
+        <arguments>
+            <argument name="outputFormats" xsi:type="array">
+                <item name="jpeg" xsi:type="string">jpeg</item>
+                <item name="png" xsi:type="string">png</item>
+            </argument>
+            <argument name="qualityFormats" xsi:type="array">
+                <item name="jpeg" xsi:type="string">jpeg</item>
+            </argument>
+        </arguments>
+    </type>
+    <!-- Images above this many pixels are neither accepted as uploads nor decoded -->
+    <type name="Hryvinskyi\BannerSlider\Model\Image\ImagePixelLimit">
+        <arguments>
+            <argument name="maxPixels" xsi:type="number">50000000</argument>
+        </arguments>
+    </type>
 
-    <preference for="Hryvinskyi\BannerSliderApi\Api\Banner\SearchCriteria\AddActiveFilterInterface"
-                type="Hryvinskyi\BannerSlider\Model\Banner\SearchCriteria\AddActiveFilter"/>
-    <preference for="Hryvinskyi\BannerSliderApi\Api\Banner\SearchCriteria\AddSliderIdFilterInterface"
-                type="Hryvinskyi\BannerSlider\Model\Banner\SearchCriteria\AddSliderIdFilter"/>
-    <preference for="Hryvinskyi\BannerSliderApi\Api\Banner\SearchCriteria\AddDateFromDateToFilterInterface"
-                type="Hryvinskyi\BannerSlider\Model\Banner\SearchCriteria\AddDateFromDateToFilter"/>
-    <preference for="Hryvinskyi\BannerSliderApi\Api\Banner\SearchCriteria\AddPositionSortOrderInterface"
-                type="Hryvinskyi\BannerSlider\Model\Banner\SearchCriteria\AddPositionSortOrder"/>
-
-    <!-- Slider Locator -->
-    <preference for="Hryvinskyi\BannerSliderApi\Api\Slider\Locator\SliderLocatorInterface"
-                type="Hryvinskyi\BannerSlider\Model\Slider\Locator\SliderLocator"/>
-
-    <!-- Breakpoint Interfaces -->
-    <preference for="Hryvinskyi\BannerSliderApi\Api\Data\BreakpointInterface"
-                type="Hryvinskyi\BannerSlider\Model\Breakpoint"/>
-    <preference for="Hryvinskyi\BannerSliderApi\Api\Data\BreakpointSearchResultsInterface"
-                type="Hryvinskyi\BannerSlider\Model\BreakpointSearchResults"/>
-    <preference for="Hryvinskyi\BannerSliderApi\Api\BreakpointRepositoryInterface"
-                type="Hryvinskyi\BannerSlider\Model\BreakpointRepository"/>
-
-    <!-- Responsive Crop Interfaces -->
-    <preference for="Hryvinskyi\BannerSliderApi\Api\Data\ResponsiveCropInterface"
-                type="Hryvinskyi\BannerSlider\Model\ResponsiveCrop"/>
-    <preference for="Hryvinskyi\BannerSliderApi\Api\Data\ResponsiveCropSearchResultsInterface"
-                type="Hryvinskyi\BannerSlider\Model\ResponsiveCropSearchResults"/>
-    <preference for="Hryvinskyi\BannerSliderApi\Api\ResponsiveCropRepositoryInterface"
-                type="Hryvinskyi\BannerSlider\Model\ResponsiveCropRepository"/>
-
-    <!-- Image Processing Services -->
-    <preference for="Hryvinskyi\BannerSliderApi\Api\Image\ImagePathConfigInterface"
-                type="Hryvinskyi\BannerSlider\Model\Image\ImagePathConfig"/>
-    <preference for="Hryvinskyi\BannerSliderApi\Api\Image\CropProcessorInterface"
-                type="Hryvinskyi\BannerSlider\Model\Image\CropProcessor"/>
-    <preference for="Hryvinskyi\BannerSliderApi\Api\Image\FormatConverterInterface"
-                type="Hryvinskyi\BannerSlider\Model\Image\FormatConverter"/>
-    <preference for="Hryvinskyi\BannerSliderApi\Api\Image\ResponsiveImageGeneratorInterface"
-                type="Hryvinskyi\BannerSlider\Model\Image\ResponsiveImageGenerator"/>
-    <preference for="Hryvinskyi\BannerSliderApi\Api\Image\UploadCompressedImagesInterface"
-                type="Hryvinskyi\BannerSlider\Model\Image\UploadCompressedImages"/>
-
-    <!-- Binary Path Resolver -->
-    <preference for="Hryvinskyi\BannerSliderApi\Api\Image\BinaryPathResolverInterface"
-                type="Hryvinskyi\BannerSlider\Model\Image\BinaryPathResolver"/>
+    <!-- Folders searched for command-line encoders, absolute or relative to the project root -->
+    <type name="Hryvinskyi\BannerSlider\Model\Process\BinaryLocator">
+        <arguments>
+            <argument name="directories" xsi:type="array">
+                <item name="vendor_bin" xsi:type="string">vendor/bin</item>
+            </argument>
+        </arguments>
+    </type>
 
 </config>

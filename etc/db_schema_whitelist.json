@@ -5,8 +5,7 @@
             "name": true,
             "status": true,
             "location": true,
-            "store_ids": true,
-            "customer_group_ids": true,
+            "all_customer_groups": true,
             "priority": true,
             "effect": true,
             "auto_width": true,
@@ -17,7 +16,6 @@
             "auto_play_timeout": true,
             "nav": true,
             "dots": true,
-            "is_responsive": true,
             "responsive_items": true,
             "preload_banners_count": true,
             "from_date": true,
@@ -29,10 +27,39 @@
         "index": {
             "HRYVINSKYI_BANNER_SLIDER_STATUS": true,
             "HRYVINSKYI_BANNER_SLIDER_LOCATION": true,
-            "HRYVINSKYI_BANNER_SLIDER_PRIORITY": true
+            "HRYVINSKYI_BANNER_SLIDER_PRIORITY": true,
+            "HRYVINSKYI_BANNER_SLIDER_NAME_LOCATION": true
         },
         "constraint": {
             "PRIMARY": true
+        }
+    },
+    "hryvinskyi_banner_slider_store": {
+        "column": {
+            "slider_id": true,
+            "store_id": true
+        },
+        "index": {
+            "HRYVINSKYI_BANNER_SLIDER_STORE_STORE_ID": true
+        },
+        "constraint": {
+            "PRIMARY": true,
+            "FK_24C527F0EC13720C1CB39F1B045557A4": true,
+            "HRYVINSKYI_BANNER_SLIDER_STORE_STORE_ID_STORE_STORE_ID": true
+        }
+    },
+    "hryvinskyi_banner_slider_customer_group": {
+        "column": {
+            "slider_id": true,
+            "customer_group_id": true
+        },
+        "index": {
+            "HRYVINSKYI_BANNER_SLIDER_CUSTOMER_GROUP_CUSTOMER_GROUP_ID": true
+        },
+        "constraint": {
+            "PRIMARY": true,
+            "FK_9FFD62145B0FB0AE6254069D128A3D9D": true,
+            "FK_8316FA71850A8CA59CFC8A338B082C84": true
         }
     },
     "hryvinskyi_banner_slider_banner": {
@@ -44,6 +71,8 @@
             "type": true,
             "content": true,
             "image": true,
+            "image_width": true,
+            "image_height": true,
             "video_url": true,
             "video_aspect_ratio": true,
             "video_path": true,
@@ -61,12 +90,14 @@
         "index": {
             "HRYVINSKYI_BANNER_SLIDER_BANNER_SLIDER_ID": true,
             "HRYVINSKYI_BANNER_SLIDER_BANNER_STATUS": true,
+            "HRYVINSKYI_BANNER_SLIDER_BANNER_SLIDER_ID_STATUS": true,
             "HRYVINSKYI_BANNER_SLIDER_BANNER_POSITION": true,
-            "HRYVINSKYI_BANNER_SLIDER_BANNER_FT": true
+            "HRYVINSKYI_BANNER_SLIDER_BANNER_NAME_IMAGE_LINK_URL": true,
+            "HRYVINSKYI_BANNER_SLIDER_BANNER_NAME_LINK_URL": true
         },
         "constraint": {
             "PRIMARY": true,
-            "HRYVINSKYI_BANNER_SLIDER_BANNER_SLIDER_ID": true
+            "FK_CB3DAEE3804E15EC83F8F5E1BC0C9D72": true
         }
     },
     "hryvinskyi_banner_slider_image": {
@@ -86,7 +117,76 @@
         },
         "constraint": {
             "PRIMARY": true,
-            "HRYVINSKYI_BANNER_SLIDER_IMAGE_BANNER_ID": true
+            "FK_DB9DDCE87AEEEB29FFBD22BCE057C392": true
+        }
+    },
+    "hryvinskyi_banner_slider_breakpoint": {
+        "column": {
+            "breakpoint_id": true,
+            "slider_id": true,
+            "name": true,
+            "identifier": true,
+            "media_query": true,
+            "min_width": true,
+            "target_width": true,
+            "target_height": true,
+            "sort_order": true,
+            "status": true,
+            "created_at": true,
+            "updated_at": true
+        },
+        "index": {
+            "HRYVINSKYI_BANNER_SLIDER_BREAKPOINT_SLIDER_ID": true,
+            "HRYVINSKYI_BANNER_SLIDER_BREAKPOINT_STATUS": true,
+            "HRYVINSKYI_BANNER_SLIDER_BREAKPOINT_SORT_ORDER": true
+        },
+        "constraint": {
+            "PRIMARY": true,
+            "FK_0D702F77F20A8DC93DAF40C60375EF11": true,
+            "HRYVINSKYI_BANNER_SLIDER_BREAKPOINT_SLIDER_ID_IDENTIFIER": true
+        }
+    },
+    "hryvinskyi_banner_slider_responsive_crop": {
+        "column": {
+            "crop_id": true,
+            "banner_id": true,
+            "breakpoint_id": true,
+            "source_image": true,
+            "crop_x": true,
+            "crop_y": true,
+            "crop_width": true,
+            "crop_height": true,
+            "cropped_image": true,
+            "sort_order": true,
+            "status": true,
+            "created_at": true,
+            "updated_at": true
+        },
+        "index": {
+            "HRYVINSKYI_BANNER_SLIDER_RESPONSIVE_CROP_BANNER_ID": true,
+            "HRYVINSKYI_BANNER_SLIDER_RESPONSIVE_CROP_BREAKPOINT_ID": true,
+            "HRYVINSKYI_BANNER_SLIDER_RESPONSIVE_CROP_STATUS": true,
+            "HRYVINSKYI_BANNER_SLIDER_RESPONSIVE_CROP_BANNER_ID_STATUS": true
+        },
+        "constraint": {
+            "PRIMARY": true,
+            "FK_DCA998838E16C3E980906C07E449B887": true,
+            "FK_EBA083D31A4FF14674585024A252BA9C": true,
+            "HRYVINSKYI_BANNER_SLIDER_RESPONSIVE_CROP_BANNER_ID_BREAKPOINT_ID": true
+        }
+    },
+    "hryvinskyi_banner_slider_crop_variant": {
+        "column": {
+            "variant_id": true,
+            "crop_id": true,
+            "format": true,
+            "quality": true,
+            "path": true
+        },
+        "constraint": {
+            "PRIMARY": true,
+            "FK_FE4F4FE1BC3569CF8B86413DF2BA6D25": true,
+            "HRYVINSKYI_BANNER_SLIDER_CROP_VARIANT_CROP_ID_FORMAT": true
         }
     }
 }

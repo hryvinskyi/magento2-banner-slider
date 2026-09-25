@@ -9,16 +9,26 @@ declare(strict_types=1);
 
 namespace Hryvinskyi\BannerSlider\Model\ResourceModel\Banner;
 
+use DateTimeInterface;
 use Hryvinskyi\BannerSlider\Model\Banner;
+use Hryvinskyi\BannerSlider\Model\ResourceModel\ActiveWindowCondition;
 use Hryvinskyi\BannerSlider\Model\ResourceModel\Banner as BannerResource;
 use Hryvinskyi\BannerSliderApi\Api\Data\BannerInterface;
+use Magento\Framework\Data\Collection\Db\FetchStrategyInterface;
+use Magento\Framework\Data\Collection\EntityFactoryInterface;
+use Magento\Framework\DB\Adapter\AdapterInterface;
+use Magento\Framework\Event\ManagerInterface;
+use Magento\Framework\Model\ResourceModel\Db\AbstractDb;
 use Magento\Framework\Model\ResourceModel\Db\Collection\AbstractCollection;
+use Psr\Log\LoggerInterface;
 
 /**
- * Banner collection
+ * Banners with the storefront filters: slider, enabled, active window and slide order.
  */
 class Collection extends AbstractCollection
 {
+    private const MAIN_TABLE_ALIAS = 'main_table';
+
     /**
      * @var string
      */
@@ -35,6 +45,27 @@ class Collection extends AbstractCollection
     protected $_eventObject = 'banner_collection';
 
     /**
+     * @param EntityFactoryInterface $entityFactory
+     * @param LoggerInterface $logger
+     * @param FetchStrategyInterface $fetchStrategy
+     * @param ManagerInterface $eventManager
+     * @param ActiveWindowCondition $activeWindowCondition
+     * @param AdapterInterface|null $connection
+     * @param AbstractDb|null $resource
+     */
+    public function __construct(
+        EntityFactoryInterface $entityFactory,
+        LoggerInterface $logger,
+        FetchStrategyInterface $fetchStrategy,
+        ManagerInterface $eventManager,
+        private readonly ActiveWindowCondition $activeWindowCondition,
+        ?AdapterInterface $connection = null,
+        ?AbstractDb $resource = null
+    ) {
+        parent::__construct($entityFactory, $logger, $fetchStrategy, $eventManager, $connection, $resource);
+    }
+
+    /**
      * @inheritDoc
      */
     protected function _construct(): void
@@ -43,57 +74,65 @@ class Collection extends AbstractCollection
     }
 
     /**
-     * Add slider filter to collection
+     * Keep banners of the slider
      *
      * @param int $sliderId
      * @return $this
      */
     public function addSliderFilter(int $sliderId): self
     {
-        $this->addFieldToFilter(BannerInterface::SLIDER_ID, $sliderId);
+        $this->getSelect()->where($this->mainColumn(BannerInterface::SLIDER_ID) . ' = ?', $sliderId);
 
         return $this;
     }
 
     /**
-     * Add active filter to collection
+     * Keep enabled banners
      *
      * @return $this
      */
-    public function addActiveFilter(): self
+    public function addEnabledFilter(): self
     {
-        $this->addFieldToFilter(BannerInterface::STATUS, 1);
+        $this->getSelect()->where($this->mainColumn(BannerInterface::STATUS) . ' = ?', 1);
 
         return $this;
     }
 
     /**
-     * Add date filter to collection
+     * Keep banners whose active window contains the moment
      *
-     * @param string|null $date
+     * @param DateTimeInterface $at
      * @return $this
      */
-    public function addDateFilter(?string $date = null): self
+    public function addActiveAtFilter(DateTimeInterface $at): self
     {
-        $date = $date ?? (new \DateTime())->format('Y-m-d H:i:s');
+        $this->activeWindowCondition->apply($this->getSelect(), $at, self::MAIN_TABLE_ALIAS);
 
+        return $this;
+    }
+
+    /**
+     * Order as slides: position ascending, then id ascending
+     *
+     * @return $this
+     */
+    public function orderByPosition(): self
+    {
         $this->getSelect()
-            ->where('(from_date IS NULL OR from_date <= ?)', $date)
-            ->where('(to_date IS NULL OR to_date >= ?)', $date);
+            ->order($this->mainColumn(BannerInterface::POSITION) . ' ' . self::SORT_ORDER_ASC)
+            ->order($this->mainColumn(BannerInterface::BANNER_ID) . ' ' . self::SORT_ORDER_ASC);
 
         return $this;
     }
 
     /**
-     * Add position sort order
+     * Column of the main table, qualified with its alias
      *
-     * @param string $direction
-     * @return $this
+     * @param string $column
+     * @return string
      */
-    public function addPositionOrder(string $direction = 'ASC'): self
+    private function mainColumn(string $column): string
     {
-        $this->setOrder(BannerInterface::POSITION, $direction);
-
-        return $this;
+        return self::MAIN_TABLE_ALIAS . '.' . $column;
     }
 }

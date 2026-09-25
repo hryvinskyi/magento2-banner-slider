@@ -1,27 +1,38 @@
 <?xml version="1.0"?>
 <!--
 /**
- * Copyright (c) 2025. MageCloud.  All rights reserved.
- * @author: Volodymyr Hryvinskyi <mailto:volodymyr@hryvinskyi.com>
+ * Copyright (c) 2026. Volodymyr Hryvinskyi. All rights reserved.
+ * Author: Volodymyr Hryvinskyi <volodymyr@hryvinskyi.com>
+ * GitHub: https://github.com/hryvinskyi
  */
 -->
-
 <config xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
         xsi:noNamespaceSchemaLocation="urn:magento:module:Magento_Store:etc/config.xsd">
     <default>
         <system>
             <media_storage_configuration>
                 <allowed_resources>
-                    <banner_slider_fodler>banner_slider</banner_slider_fodler>
-                    <banner_slider_image_fodler>banner_slider/image</banner_slider_image_fodler>
-                    <banner_slider_video_fodler>banner_slider/video</banner_slider_video_fodler>
-                    <media_gallery_image_folders>
-                        <banner_slider_fodler>banner_slider</banner_slider_fodler>
-                        <banner_slider_image_fodler>banner_slider/image</banner_slider_image_fodler>
-                        <banner_slider_video_fodler>banner_slider/video</banner_slider_video_fodler>
-                    </media_gallery_image_folders>
+                    <banner_slider_folder>banner_slider</banner_slider_folder>
+                    <banner_slider_image_folder>banner_slider/image</banner_slider_image_folder>
+                    <banner_slider_video_folder>banner_slider/video</banner_slider_video_folder>
                 </allowed_resources>
             </media_storage_configuration>
         </system>
+        <hryvinskyi_banner_slider>
+            <image>
+                <default_formats>webp</default_formats>
+                <webp_quality>85</webp_quality>
+                <avif_quality>80</avif_quality>
+                <jpeg_quality>90</jpeg_quality>
+                <max_upload_size_mb>10</max_upload_size_mb>
+            </image>
+            <video>
+                <privacy_enhanced>1</privacy_enhanced>
+                <max_upload_size_mb>100</max_upload_size_mb>
+            </video>
+            <media>
+                <orphan_sweep_enabled>0</orphan_sweep_enabled>
+            </media>
+        </hryvinskyi_banner_slider>
     </default>
 </config>

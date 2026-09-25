@@ -13,7 +13,8 @@ use Hryvinskyi\BannerSliderApi\Api\Data\BreakpointInterface;
 use Magento\Framework\Model\ResourceModel\Db\AbstractDb;
 
 /**
- * Breakpoint resource model
+ * Persists breakpoints in `hryvinskyi_banner_slider_breakpoint`; the crops made for one are removed by the database
+ * cascade.
  */
 class Breakpoint extends AbstractDb
 {

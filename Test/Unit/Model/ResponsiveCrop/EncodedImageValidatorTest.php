@@ -11,6 +11,7 @@ namespace Hryvinskyi\BannerSlider\Test\Unit\Model\ResponsiveCrop;
 
 use Hryvinskyi\BannerSlider\Model\Image\GdImageDecoder;
 use Hryvinskyi\BannerSlider\Model\Image\ImageInspector;
+use Hryvinskyi\BannerSlider\Model\Image\LibpngWarningTolerance;
 use Hryvinskyi\BannerSlider\Model\Image\RuntimeCapabilities;
 use Hryvinskyi\BannerSlider\Model\Media\LocalFileWorkspace;
 use Hryvinskyi\BannerSlider\Model\ResponsiveCrop\EncodedImageValidator;
@@ -95,7 +96,7 @@ class EncodedImageValidatorTest extends TestCase
             $this->inspector,
             $workspace,
             $localDriver,
-            new GdImageDecoder(new RuntimeCapabilities(), self::GD_FORMATS)
+            new GdImageDecoder(new RuntimeCapabilities(), new LibpngWarningTolerance(), self::GD_FORMATS)
         );
     }
 
@@ -159,7 +160,7 @@ class EncodedImageValidatorTest extends TestCase
             $this->inspector,
             $this->createMock(LocalFileWorkspace::class),
             $this->createMock(LocalFileDriver::class),
-            new GdImageDecoder(new RuntimeCapabilities(), self::GD_FORMATS)
+            new GdImageDecoder(new RuntimeCapabilities(), new LibpngWarningTolerance(), self::GD_FORMATS)
         );
         $this->inspector->expects(self::never())->method('inspect');
 
@@ -237,7 +238,8 @@ class EncodedImageValidatorTest extends TestCase
      */
     public function testTruncatedBodyIsRefused(): void
     {
-        if (!(new GdImageDecoder(new RuntimeCapabilities(), self::GD_FORMATS))->canDecode('png')) {
+        $decoder = new GdImageDecoder(new RuntimeCapabilities(), new LibpngWarningTolerance(), self::GD_FORMATS);
+        if (!$decoder->canDecode('png')) {
             self::markTestSkipped('GD cannot decode PNG on this runtime.');
         }
         $this->inspector->method('inspect')->willReturn(['mime' => 'image/png', 'width' => 2, 'height' => 2]);
@@ -274,7 +276,7 @@ class EncodedImageValidatorTest extends TestCase
             $this->inspector,
             $workspace,
             $this->createMock(LocalFileDriver::class),
-            new GdImageDecoder(new RuntimeCapabilities(), [])
+            new GdImageDecoder(new RuntimeCapabilities(), new LibpngWarningTolerance(), [])
         );
 
         self::assertSame('png', $validator->validate(

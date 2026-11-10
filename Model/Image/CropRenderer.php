@@ -30,6 +30,7 @@ use Magento\Framework\Image\AdapterFactory;
  * - An output format listed as a quality format (`di.xml`; JPEG) is saved at the configured quality of that format
  *   (the framework's image adapters take a quality); the others (PNG, lossless) at the adapter's own setting.
  * - A source or an output with more pixels than the image pixel limit is refused before anything is decoded.
+ * - libpng's warnings about a source (an incorrect colour profile) do not fail the crop; libpng decodes such a file.
  *
  * Messages never contain a server path; adapter details travel in the previous exception, for the log.
  */
@@ -45,6 +46,7 @@ class CropRenderer
      * @param AdapterFactory $adapterFactory
      * @param ImagePixelLimit $pixelLimit
      * @param ImageConfigInterface $imageConfig
+     * @param LibpngWarningTolerance $libpngWarnings
      * @param array<string> $outputFormats Codes of the formats the image adapter writes
      * @param array<string> $qualityFormats Codes of the output formats saved at their configured quality
      */
@@ -56,6 +58,7 @@ class CropRenderer
         private readonly AdapterFactory $adapterFactory,
         private readonly ImagePixelLimit $pixelLimit,
         private readonly ImageConfigInterface $imageConfig,
+        private readonly LibpngWarningTolerance $libpngWarnings,
         private readonly array $outputFormats = ['jpeg', 'png'],
         private readonly array $qualityFormats = ['jpeg']
     ) {
@@ -193,7 +196,10 @@ class CropRenderer
         if ($adapter instanceof AbstractAdapter && in_array($outputFormat->getCode(), $this->qualityFormats, true)) {
             $adapter->quality($this->imageConfig->getDefaultQuality($outputFormat->getCode()));
         }
-        $adapter->open($adapterSource);
+        // A PNG libpng only warns about (such as one with an incorrect sRGB profile) still opens
+        $this->libpngWarnings->run(static function () use ($adapter, $adapterSource): void {
+            $adapter->open($adapterSource);
+        });
         $adapter->crop(
             $rect->getY(),
             $rect->getX(),

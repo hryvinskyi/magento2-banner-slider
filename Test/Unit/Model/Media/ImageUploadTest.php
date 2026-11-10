@@ -13,6 +13,7 @@ use Hryvinskyi\BannerSlider\Model\Image\GdImageDecoder;
 use Hryvinskyi\BannerSlider\Model\Image\ImageInspector;
 use Hryvinskyi\BannerSlider\Model\Image\ImagePixelLimit;
 use Hryvinskyi\BannerSlider\Model\Image\JpegOrientationNormaliser;
+use Hryvinskyi\BannerSlider\Model\Image\LibpngWarningTolerance;
 use Hryvinskyi\BannerSlider\Model\Image\RuntimeCapabilities;
 use Hryvinskyi\BannerSlider\Model\Media\LocalFileWorkspace;
 use Hryvinskyi\BannerSlider\Model\Media\ImageUpload;
@@ -241,7 +242,8 @@ class ImageUploadTest extends TestCase
     public function testRotatedJpegIsStoredUpright(): void
     {
         if (!(new RuntimeCapabilities())->hasFunction('exif_read_data')
-            || !(new GdImageDecoder(new RuntimeCapabilities(), ['jpeg' => 'JPEG Support']))->canDecode('jpeg')
+            || !(new GdImageDecoder(new RuntimeCapabilities(), new LibpngWarningTolerance(), ['jpeg' => 'JPEG Support'])
+            )->canDecode('jpeg')
         ) {
             self::markTestSkipped('This runtime cannot read EXIF or decode JPEG.');
         }
@@ -321,7 +323,7 @@ class ImageUploadTest extends TestCase
 
         return new JpegOrientationNormaliser(
             $runtime,
-            new GdImageDecoder($runtime, ['jpeg' => 'JPEG Support']),
+            new GdImageDecoder($runtime, new LibpngWarningTolerance(), ['jpeg' => 'JPEG Support']),
             $workspace,
             $driver,
             $this->imageConfig,

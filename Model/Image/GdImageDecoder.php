@@ -22,10 +22,12 @@ class GdImageDecoder
 
     /**
      * @param RuntimeCapabilities $runtime
+     * @param LibpngWarningTolerance $libpngWarnings
      * @param array<string,string> $readableFormats Format code => `gd_info()` feature telling GD reads the format
      */
     public function __construct(
         private readonly RuntimeCapabilities $runtime,
+        private readonly LibpngWarningTolerance $libpngWarnings,
         private readonly array $readableFormats = []
     ) {
     }
@@ -55,7 +57,10 @@ class GdImageDecoder
     public function decode(string $bytes): \GdImage
     {
         try {
-            $image = $bytes === '' ? false : imagecreatefromstring($bytes);
+            // A PNG libpng only warns about (such as one with an incorrect sRGB profile) still decodes
+            $image = $bytes === '' ? false : $this->libpngWarnings->run(
+                static fn (): \GdImage|false => imagecreatefromstring($bytes)
+            );
             if ($image === false) {
                 throw new EncodingException(__('GD could not decode the source image.'));
             }

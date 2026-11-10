@@ -15,6 +15,7 @@ use Hryvinskyi\BannerSlider\Model\Image\Encoder\GdPngEncoder;
 use Hryvinskyi\BannerSlider\Model\Image\Encoder\GdWebpEncoder;
 use Hryvinskyi\BannerSlider\Model\Image\EncodingException;
 use Hryvinskyi\BannerSlider\Model\Image\GdImageDecoder;
+use Hryvinskyi\BannerSlider\Model\Image\LibpngWarningTolerance;
 use Hryvinskyi\BannerSlider\Model\Image\RuntimeCapabilities;
 use Magento\Framework\Filesystem\Driver\File as LocalFileDriver;
 use PHPUnit\Framework\Attributes\CoversClass;
@@ -105,7 +106,8 @@ class GdEncodersTest extends TestCase
     public function testEncodesFixture(string $encoderClass, string $source, string $expectedMime): void
     {
         $runtime = new RuntimeCapabilities();
-        $encoder = new $encoderClass($runtime, $this->localDriver, new GdImageDecoder($runtime));
+        $decoder = new GdImageDecoder($runtime, new LibpngWarningTolerance());
+        $encoder = new $encoderClass($runtime, $this->localDriver, $decoder);
         if (!$encoder->isAvailable()) {
             self::markTestSkipped('GD cannot write this format on this runtime.');
         }
@@ -132,7 +134,7 @@ class GdEncodersTest extends TestCase
         $encoder = new GdPngEncoder(
             new RuntimeCapabilities(),
             $this->localDriver,
-            new GdImageDecoder(new RuntimeCapabilities())
+            new GdImageDecoder(new RuntimeCapabilities(), new LibpngWarningTolerance())
         );
         if (!$encoder->isAvailable()) {
             self::markTestSkipped('GD is not available on this runtime.');
@@ -157,7 +159,9 @@ class GdEncodersTest extends TestCase
             ->willReturnCallback(static fn (string $function): bool => in_array($function, $functions, true));
         $runtime->method('gdSupports')
             ->willReturnCallback(static fn (string $feature): bool => in_array($feature, $gdFeatures, true));
-        return new $encoderClass($runtime, $this->localDriver, new GdImageDecoder($runtime));
+        $decoder = new GdImageDecoder($runtime, new LibpngWarningTolerance());
+
+        return new $encoderClass($runtime, $this->localDriver, $decoder);
     }
 
     /**

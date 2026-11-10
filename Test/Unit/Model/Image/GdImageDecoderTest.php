@@ -11,6 +11,7 @@ namespace Hryvinskyi\BannerSlider\Test\Unit\Model\Image;
 
 use Hryvinskyi\BannerSlider\Model\Image\EncodingException;
 use Hryvinskyi\BannerSlider\Model\Image\GdImageDecoder;
+use Hryvinskyi\BannerSlider\Model\Image\LibpngWarningTolerance;
 use Hryvinskyi\BannerSlider\Model\Image\RuntimeCapabilities;
 use Magento\Framework\Filesystem\Driver\File as LocalFileDriver;
 use PHPUnit\Framework\Attributes\CoversClass;
@@ -36,7 +37,11 @@ class GdImageDecoderTest extends TestCase
         $runtime->method('gdSupports')->willReturnCallback(
             static fn (string $feature): bool => $feature === 'PNG Support'
         );
-        $decoder = new GdImageDecoder($runtime, ['png' => 'PNG Support', 'avif' => 'AVIF Support']);
+        $decoder = new GdImageDecoder(
+            $runtime,
+            new LibpngWarningTolerance(),
+            ['png' => 'PNG Support', 'avif' => 'AVIF Support']
+        );
 
         self::assertTrue($decoder->canDecode('png'));
         self::assertFalse($decoder->canDecode('avif'));
@@ -45,7 +50,8 @@ class GdImageDecoderTest extends TestCase
         $withoutGd = $this->createMock(RuntimeCapabilities::class);
         $withoutGd->method('hasFunction')->willReturn(false);
         $withoutGd->method('gdSupports')->willReturn(true);
-        self::assertFalse((new GdImageDecoder($withoutGd, ['png' => 'PNG Support']))->canDecode('png'));
+        $withoutGdDecoder = new GdImageDecoder($withoutGd, new LibpngWarningTolerance(), ['png' => 'PNG Support']);
+        self::assertFalse($withoutGdDecoder->canDecode('png'));
     }
 
     /**
@@ -91,7 +97,11 @@ class GdImageDecoderTest extends TestCase
      */
     private function realDecoder(): GdImageDecoder
     {
-        $decoder = new GdImageDecoder(new RuntimeCapabilities(), ['png' => 'PNG Support']);
+        $decoder = new GdImageDecoder(
+            new RuntimeCapabilities(),
+            new LibpngWarningTolerance(),
+            ['png' => 'PNG Support']
+        );
         if (!$decoder->canDecode('png')) {
             self::markTestSkipped('GD cannot decode PNG on this runtime.');
         }

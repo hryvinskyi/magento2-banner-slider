@@ -14,6 +14,7 @@ use Hryvinskyi\BannerSlider\Model\Image\EncodingException;
 use Hryvinskyi\BannerSlider\Model\Image\ImageConverter;
 use Hryvinskyi\BannerSlider\Model\Image\ImageInspector;
 use Hryvinskyi\BannerSlider\Model\Image\ImagePixelLimit;
+use Hryvinskyi\BannerSlider\Model\Image\LibpngWarningTolerance;
 use Hryvinskyi\BannerSlider\Model\Media\LocalFileWorkspace;
 use Hryvinskyi\BannerSliderApi\Api\Config\ImageConfigInterface;
 use Hryvinskyi\BannerSliderApi\Api\Image\ImageFormatRegistryInterface;
@@ -109,6 +110,7 @@ class CropRendererTest extends TestCase
             $this->adapterFactory,
             new ImagePixelLimit(1000000),
             $this->imageConfig,
+            new LibpngWarningTolerance(),
             ['jpeg' => 'jpeg', 'png' => 'png'],
             ['jpeg' => 'jpeg']
         );
@@ -379,6 +381,7 @@ class CropRendererTest extends TestCase
             $adapterFactory,
             new ImagePixelLimit(1000000),
             $this->imageConfig,
+            new LibpngWarningTolerance(),
             ['jpeg' => 'jpeg', 'png' => 'png'],
             ['jpeg' => 'jpeg']
         );

@@ -12,6 +12,7 @@ namespace Hryvinskyi\BannerSlider\Test\Unit\Model\Image;
 use Hryvinskyi\BannerSlider\Model\Image\GdImageDecoder;
 use Hryvinskyi\BannerSlider\Model\Image\ImageInspector;
 use Hryvinskyi\BannerSlider\Model\Image\JpegOrientationNormaliser;
+use Hryvinskyi\BannerSlider\Model\Image\LibpngWarningTolerance;
 use Hryvinskyi\BannerSlider\Model\Image\RuntimeCapabilities;
 use Hryvinskyi\BannerSlider\Model\Media\LocalFileWorkspace;
 use Hryvinskyi\BannerSliderApi\Api\Config\ImageConfigInterface;
@@ -149,7 +150,8 @@ class JpegOrientationNormaliserTest extends TestCase
     {
         $runtime = new RuntimeCapabilities();
         if (!$runtime->hasFunction('exif_read_data')
-            || !(new GdImageDecoder($runtime, ['jpeg' => 'JPEG Support']))->canDecode('jpeg')
+            || !(new GdImageDecoder($runtime, new LibpngWarningTolerance(), ['jpeg' => 'JPEG Support']))
+                ->canDecode('jpeg')
         ) {
             self::markTestSkipped('This runtime cannot read EXIF or decode JPEG.');
         }
@@ -182,7 +184,7 @@ class JpegOrientationNormaliserTest extends TestCase
 
         return new JpegOrientationNormaliser(
             $runtime,
-            new GdImageDecoder($runtime, ['jpeg' => 'JPEG Support']),
+            new GdImageDecoder($runtime, new LibpngWarningTolerance(), ['jpeg' => 'JPEG Support']),
             $workspace,
             $this->driver,
             $imageConfig,

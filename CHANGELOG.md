@@ -5,6 +5,19 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.1.1] - 2026-11-10
+
+### Fixed
+- A PNG that libpng only warns about, such as one with an incorrect sRGB colour profile ("iCCP: known incorrect
+  sRGB profile"), no longer fails its crop or its conversion. GD builds that pass libpng's warnings on raise a PHP
+  warning, which Magento's error handler turns into an exception; `CropRenderer` and `GdImageDecoder` now open images
+  through `LibpngWarningTolerance`, which ignores those warnings and nothing else. Seen in the 2.0 migration of a
+  legacy slider, where it stopped `setup:upgrade`.
+- `setup:upgrade` in production mode no longer stops at `NormaliseLegacyRows` with "Unable to retrieve deployment
+  version of static files". `SiteBaseUrls` read every store's static URL, which needs `pub/static/deployed_version.txt`
+  when static files are signed, and `setup:upgrade` deletes that file. It now reads the web, link and media base URLs
+  from the configuration and no static URL, which never holds media.
+
 ## [2.1.0] - 2026-09-25
 
 Requires `hryvinskyi/magento2-banner-slider-api` 2.1.

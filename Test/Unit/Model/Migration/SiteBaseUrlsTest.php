@@ -10,53 +10,109 @@ declare(strict_types=1);
 namespace Hryvinskyi\BannerSlider\Test\Unit\Model\Migration;
 
 use Hryvinskyi\BannerSlider\Model\Migration\SiteBaseUrls;
-use Magento\Store\Api\Data\StoreConfigInterface;
-use Magento\Store\Api\StoreConfigManagerInterface;
+use Magento\Framework\App\Config\ScopeConfigInterface;
+use Magento\Store\Api\Data\StoreInterface;
+use Magento\Store\Model\ScopeInterface;
+use Magento\Store\Model\StoreManagerInterface;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\TestCase;
 
+/**
+ * The site's base URLs come from the configuration of each store view, never from building a static URL
+ */
 #[CoversClass(SiteBaseUrls::class)]
 class SiteBaseUrlsTest extends TestCase
 {
     /**
-     * Every base URL of every store view, once, without blanks
-     *
      * @return void
      */
-    public function testCollectsDistinctBaseUrls(): void
+    public function testCollectsTheDistinctConfiguredBaseUrlsOfEveryStoreView(): void
     {
-        $manager = $this->createMock(StoreConfigManagerInterface::class);
-        $manager->method('getStoreConfigs')->willReturn([
-            $this->config('https://shop.test/', 'https://cdn.shop.test/media/'),
-            $this->config('https://de.shop.test/', ''),
+        $urls = $this->siteBaseUrls([
+            0 => $this->store('https://shop.test/', '{{unsecure_base_url}}media/'),
+            1 => $this->store('https://shop.test/', 'https://cdn.shop.test/media/'),
+            2 => $this->store(' https://de.shop.test/ ', ''),
         ]);
 
         self::assertSame(
             ['https://shop.test/', 'https://cdn.shop.test/media/', 'https://de.shop.test/'],
-            (new SiteBaseUrls($manager))->getAll()
+            $urls->getAll()
         );
     }
 
     /**
-     * A store view configuration whose web, link and static URLs are one URL and whose media URL is another
-     *
-     * @param string $webUrl
-     * @param string $mediaUrl
-     * @return StoreConfigInterface
+     * @return void
      */
-    private function config(string $webUrl, string $mediaUrl): StoreConfigInterface
+    public function testNoStaticUrlIsAskedFor(): void
     {
-        $config = $this->createMock(StoreConfigInterface::class);
-        foreach (['getBaseUrl', 'getSecureBaseUrl', 'getBaseLinkUrl', 'getSecureBaseLinkUrl'] as $method) {
-            $config->method($method)->willReturn($webUrl);
-        }
-        foreach (['getBaseStaticUrl', 'getSecureBaseStaticUrl'] as $method) {
-            $config->method($method)->willReturn(' ' . $webUrl);
-        }
-        foreach (['getBaseMediaUrl', 'getSecureBaseMediaUrl'] as $method) {
-            $config->method($method)->willReturn($mediaUrl);
-        }
+        $asked = [];
+        $storeManager = $this->createMock(StoreManagerInterface::class);
+        $storeManager->method('getStores')->with(true)->willReturn([$this->storeWithId(1)]);
+        $scopeConfig = $this->createMock(ScopeConfigInterface::class);
+        $scopeConfig->method('getValue')->willReturnCallback(
+            static function (string $path) use (&$asked): string {
+                $asked[] = $path;
 
-        return $config;
+                return 'https://shop.test/';
+            }
+        );
+
+        (new SiteBaseUrls($storeManager, $scopeConfig))->getAll();
+
+        self::assertNotEmpty($asked);
+        foreach ($asked as $path) {
+            self::assertStringNotContainsString('static', $path);
+        }
+    }
+
+    /**
+     * SiteBaseUrls over store views with the given web and media URLs (the link URLs equal the web URL)
+     *
+     * @param array<int, array{web: string, media: string}> $stores Store id => its URLs
+     * @return SiteBaseUrls
+     */
+    private function siteBaseUrls(array $stores): SiteBaseUrls
+    {
+        $storeManager = $this->createMock(StoreManagerInterface::class);
+        $storeManager->method('getStores')->with(true)->willReturn(
+            array_map(fn (int $id): StoreInterface => $this->storeWithId($id), array_keys($stores))
+        );
+        $scopeConfig = $this->createMock(ScopeConfigInterface::class);
+        $scopeConfig->method('getValue')->willReturnCallback(
+            static function (string $path, string $scope, int|string|null $storeId) use ($stores): string {
+                self::assertSame(ScopeInterface::SCOPE_STORE, $scope);
+                $urls = $stores[(int)$storeId];
+
+                return str_contains($path, 'media') ? $urls['media'] : $urls['web'];
+            }
+        );
+
+        return new SiteBaseUrls($storeManager, $scopeConfig);
+    }
+
+    /**
+     * The URLs of one store view
+     *
+     * @param string $web
+     * @param string $media
+     * @return array{web: string, media: string}
+     */
+    private function store(string $web, string $media): array
+    {
+        return ['web' => $web, 'media' => $media];
+    }
+
+    /**
+     * A store view with the given id
+     *
+     * @param int $id
+     * @return StoreInterface
+     */
+    private function storeWithId(int $id): StoreInterface
+    {
+        $store = $this->createMock(StoreInterface::class);
+        $store->method('getId')->willReturn($id);
+
+        return $store;
     }
 }

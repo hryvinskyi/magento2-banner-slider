@@ -5,6 +5,12 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.1.2] - 2026-11-10
+
+### Fixed
+- `composer.json` declares the version it is tagged with, so Packagist publishes the release. The 2.1.1 tag still
+  declared 2.1.0 and was never published; 2.1.2 carries the same fixes.
+
 ## [2.1.1] - 2026-11-10
 
 ### Fixed
